@@ -1,4 +1,4 @@
-import type { ChatStartPayload, ChatStreamEvent } from "@shared/ai";
+import type { AiStreamEvent, AiStreamRequest, ProviderHealth } from "@shared/ai";
 
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
@@ -14,15 +14,16 @@ export interface LunaWindowApi {
   onMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
 }
 
-export interface LunaChatApi {
-  start: (payload: ChatStartPayload) => void;
+export interface LunaAiApi {
+  start: (request: AiStreamRequest) => void;
   cancel: (requestId: string) => void;
-  onEvent: (callback: (event: ChatStreamEvent) => void) => () => void;
+  onEvent: (callback: (event: AiStreamEvent) => void) => () => void;
+  health: (providerId: string) => Promise<ProviderHealth>;
 }
 
 export interface LunaApi {
   window: LunaWindowApi;
-  chat: LunaChatApi;
+  ai: LunaAiApi;
   platform: NodeJS.Platform;
 }
 

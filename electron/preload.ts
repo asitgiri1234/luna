@@ -1,9 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 import {
-  CHAT_CHANNELS,
-  type ChatStartPayload,
-  type ChatStreamEvent,
+  AI_CHANNELS,
+  type AiStreamEvent,
+  type AiStreamRequest,
+  type ProviderHealth,
 } from "../shared/ai";
 
 /**
@@ -26,16 +27,17 @@ const lunaApi = {
       return () => ipcRenderer.off("window:maximized-changed", listener);
     },
   },
-  chat: {
-    start: (payload: ChatStartPayload): void =>
-      ipcRenderer.send(CHAT_CHANNELS.start, payload),
-    cancel: (requestId: string): void => ipcRenderer.send(CHAT_CHANNELS.cancel, requestId),
-    onEvent: (callback: (event: ChatStreamEvent) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, value: ChatStreamEvent): void =>
+  ai: {
+    start: (request: AiStreamRequest): void => ipcRenderer.send(AI_CHANNELS.start, request),
+    cancel: (requestId: string): void => ipcRenderer.send(AI_CHANNELS.cancel, requestId),
+    onEvent: (callback: (event: AiStreamEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, value: AiStreamEvent): void =>
         callback(value);
-      ipcRenderer.on(CHAT_CHANNELS.event, listener);
-      return () => ipcRenderer.off(CHAT_CHANNELS.event, listener);
+      ipcRenderer.on(AI_CHANNELS.event, listener);
+      return () => ipcRenderer.off(AI_CHANNELS.event, listener);
     },
+    health: (providerId: string): Promise<ProviderHealth> =>
+      ipcRenderer.invoke(AI_CHANNELS.health, providerId),
   },
   platform: process.platform,
 };

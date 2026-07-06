@@ -41,28 +41,33 @@ with stop/regenerate/copy, running fully offline against Ollama.
 
 ## Architecture
 
+Full reference: [docs/ai-architecture.md](docs/ai-architecture.md).
+
 Chat data flows one way, and no layer skips a level:
 
 ```
-React components → chat store (zustand) → AI service → preload bridge
-  → IPC → chat controller (main process) → Ollama client → Ollama HTTP API
+React components → chat store (zustand adapter) → ConversationManager
+  → AIProvider (interface) → preload bridge → IPC → AiController
+  → provider registry → OllamaMainProvider → Ollama HTTP API
 ```
 
 - `electron/main.ts` — main process: window lifecycle, window-control IPC.
 - `electron/preload.ts` — the only bridge into the renderer (`window.luna`),
   kept minimal and typed.
-- `electron/backend/` — Ollama client: NDJSON streaming, watchdog
-  timeouts, error classification (not installed / not running / model
-  missing / timeout).
+- `src/ai/` — the renderer AI core: `AIProvider` interface + factory,
+  model registry, prompt builder, context manager, conversation state
+  machine, config, and the composition root that wires them (DI).
+- `electron/backend/providers/` — main-process providers behind a
+  registry; the Ollama provider owns NDJSON streaming, watchdog
+  timeouts, and error classification.
 - `electron/controllers/` + `electron/ipc/` — one controller per domain,
   registered on typed channels defined in `shared/ai.ts`.
-- `shared/` — the IPC contract (types, channels, model constant) shared
-  by both TypeScript projects.
-- `src/services/` — renderer-side wrappers around external boundaries
-  (window controls, AI streaming). Components never touch
-  `window.luna` directly.
-- `src/store/chat/` — conversation state machine (idle → waiting →
-  streaming → stopping) with frame-aligned token batching.
+- `shared/` — the IPC contract and the structured logger, shared by
+  both TypeScript projects.
+- `src/services/` — renderer-side wrappers around non-AI boundaries
+  (window controls). Components never touch `window.luna` directly.
+- `src/store/chat/` — thin zustand adapter over the conversation
+  manager; no business logic.
 - `src/layouts/` — reusable shell chrome (`AppLayout`, `PageContainer`).
 - `src/pages/<feature>/` — feature-based screens; each feature owns its
   page and its private components.
@@ -75,13 +80,17 @@ React components → chat store (zustand) → AI service → preload bridge
 
 ```
 electron/
-  backend/        # Ollama client
-  controllers/    # generation orchestration per domain
+  backend/
+    providers/    # MainAiProvider interface, Ollama impl, registry
+  controllers/    # AI controller (streams, cancel, health)
   ipc/            # channel registration
-  main.ts
+  main.ts         # main-process composition root
   preload.ts
-shared/           # IPC contract shared by main + renderer
+shared/           # IPC contract + structured logger (main + renderer)
+docs/             # architecture documentation
 src/
+  ai/             # AI core: provider/, models/, prompt/, context/,
+                  # conversation/, config/, errors/, types/, index.ts (DI root)
   assets/
   components/
     chat/         # message list, bubbles, markdown, code blocks, errors
@@ -96,9 +105,8 @@ src/
     history/
     memory/
     settings/
-  services/
-    ai/           # renderer-side streaming service
+  services/       # non-AI boundaries (window controls)
   store/
-    chat/         # conversation state machine
+    chat/         # thin zustand adapter over the conversation manager
   types/
 ```

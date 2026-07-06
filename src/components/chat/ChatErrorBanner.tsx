@@ -1,8 +1,8 @@
-import type { ChatErrorCode } from "@shared/ai";
-
 import { motion } from "framer-motion";
 import { AlertTriangle, RefreshCw, X } from "lucide-react";
 
+import { aiCore } from "@/ai";
+import type { AiErrorCode } from "@/ai/types";
 import { Button } from "@/components/ui/button";
 import { type ChatError, useChatStore } from "@/store/chat/chat.store";
 
@@ -12,28 +12,32 @@ interface ErrorPresentation {
   command?: string;
 }
 
-const presentations: Record<ChatErrorCode, ErrorPresentation> = {
-  "ollama-not-installed": {
+const presentations: Record<AiErrorCode, ErrorPresentation> = {
+  "provider-not-installed": {
     title: "Ollama isn't installed",
     description:
       "Luna runs AI locally through Ollama. Download it from ollama.com/download, install it, then try again.",
   },
-  "ollama-not-running": {
+  "provider-unavailable": {
     title: "Ollama isn't running",
     description:
       "Ollama is installed but its server isn't reachable. Start the Ollama app (or run the command below), then try again.",
     command: "ollama serve",
   },
-  "model-not-found": {
+  "model-missing": {
     title: "Model not downloaded",
     description:
       "The model Luna uses isn't available on this machine yet. Pull it with the command below, then try again.",
-    command: "ollama pull qwen2.5:3b",
+    command: `ollama pull ${aiCore.config.model}`,
   },
   timeout: {
     title: "The model took too long",
     description:
       "Ollama stopped responding. The model may still be loading — give it a moment and try again.",
+  },
+  cancelled: {
+    title: "Generation stopped",
+    description: "The response was cancelled before it finished.",
   },
   unknown: {
     title: "Something went wrong",

@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { BrowserWindow, app, ipcMain, shell } from "electron";
 
-import { registerChatIpc } from "./ipc/chat.ipc";
+import { createLogger, setLogLevel } from "../shared/logger";
+import { createDefaultProviderRegistry } from "./backend/providers/registry";
+import { AiController } from "./controllers/ai.controller";
+import { registerAiIpc } from "./ipc/ai.ipc";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -83,9 +86,15 @@ function registerWindowControls(): void {
 }
 
 app.whenReady().then(() => {
+  // Composition root for the main process: build dependencies once and
+  // inject them downward. No module reaches for a global instance.
+  if (VITE_DEV_SERVER_URL) setLogLevel("debug");
+  const log = createLogger("main");
+
   registerWindowControls();
-  registerChatIpc();
+  registerAiIpc(new AiController(createDefaultProviderRegistry()));
   createMainWindow();
+  log.info("app ready", { dev: Boolean(VITE_DEV_SERVER_URL) });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
