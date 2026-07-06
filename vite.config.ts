@@ -13,6 +13,14 @@ export default defineConfig({
     electron({
       main: {
         entry: "electron/main.ts",
+        vite: {
+          build: {
+            rollupOptions: {
+              // Native module — must be required at runtime, not bundled.
+              external: ["better-sqlite3"],
+            },
+          },
+        },
       },
       preload: {
         input: path.join(__dirname, "electron/preload.ts"),

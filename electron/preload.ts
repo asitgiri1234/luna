@@ -6,6 +6,14 @@ import {
   type AiStreamRequest,
   type ProviderHealth,
 } from "../shared/ai";
+import {
+  CONVERSATION_CHANNELS,
+  type ConversationMeta,
+  type CreateConversationInput,
+  type DbResult,
+  type SaveMessageInput,
+  type StoredMessage,
+} from "../shared/conversations";
 
 /**
  * The only bridge between the renderer and the main process.
@@ -38,6 +46,28 @@ const lunaApi = {
     },
     health: (providerId: string): Promise<ProviderHealth> =>
       ipcRenderer.invoke(AI_CHANNELS.health, providerId),
+  },
+  conversations: {
+    create: (input: CreateConversationInput): Promise<DbResult<ConversationMeta>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.create, input),
+    remove: (id: string): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.remove, id),
+    rename: (id: string, title: string): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.rename, id, title),
+    setPinned: (id: string, isPinned: boolean): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.setPinned, id, isPinned),
+    list: (): Promise<DbResult<ConversationMeta[]>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.list),
+    get: (id: string): Promise<DbResult<ConversationMeta | null>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.get, id),
+    saveMessage: (input: SaveMessageInput): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.saveMessage, input),
+    deleteMessage: (id: string): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.deleteMessage, id),
+    loadMessages: (conversationId: string): Promise<DbResult<StoredMessage[]>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.loadMessages, conversationId),
+    touch: (id: string, preview?: string): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(CONVERSATION_CHANNELS.touch, id, preview),
   },
   platform: process.platform,
 };

@@ -4,9 +4,12 @@ import { fileURLToPath } from "node:url";
 import { BrowserWindow, app, ipcMain, shell } from "electron";
 
 import { createLogger, setLogLevel } from "../shared/logger";
+import { initDatabase } from "./backend/db/client";
 import { createDefaultProviderRegistry } from "./backend/providers/registry";
 import { AiController } from "./controllers/ai.controller";
+import { ConversationsController } from "./controllers/conversations.controller";
 import { registerAiIpc } from "./ipc/ai.ipc";
+import { registerConversationsIpc } from "./ipc/conversations.ipc";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -93,6 +96,8 @@ app.whenReady().then(() => {
 
   registerWindowControls();
   registerAiIpc(new AiController(createDefaultProviderRegistry()));
+  initDatabase();
+  registerConversationsIpc(new ConversationsController());
   createMainWindow();
   log.info("app ready", { dev: Boolean(VITE_DEV_SERVER_URL) });
 

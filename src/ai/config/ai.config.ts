@@ -20,6 +20,8 @@ export interface AiConfig {
   /** Cap on generated tokens per response. */
   maxTokens: number;
   systemPrompt: string;
+  /** Bump when `systemPrompt` changes meaningfully; stored per conversation. */
+  systemPromptVersion: string;
   /** When false, future features may prefer `generate()` over `stream()`. */
   streaming: boolean;
 }
@@ -33,5 +35,6 @@ export const defaultAiConfig: AiConfig = {
   systemPrompt:
     "You are Luna, a friendly and precise desktop AI assistant. " +
     "Answer concisely, use Markdown formatting, and use fenced code blocks with a language tag for code.",
+  systemPromptVersion: "1",
   streaming: true,
 };

@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useChatStore } from "@/store/chat/chat.store";
+import { useConversationStore } from "@/store/conversations/conversation.store";
 
+import { SidebarConversations } from "./SidebarConversations";
 import { SidebarNavItem } from "./SidebarNavItem";
 
 const navItems = [
@@ -15,7 +16,7 @@ const navItems = [
 
 export function Sidebar() {
   const navigate = useNavigate();
-  const newChat = useChatStore((state) => state.newChat);
+  const startNew = useConversationStore((state) => state.startNew);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -24,7 +25,7 @@ export function Sidebar() {
           variant="outline"
           className="w-full justify-start gap-2 rounded-xl border-border/70 bg-transparent text-sm font-medium hover:bg-sidebar-accent"
           onClick={() => {
-            newChat();
+            startNew();
             navigate("/chat");
           }}
         >
@@ -33,11 +34,17 @@ export function Sidebar() {
         </Button>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-1">
+      <nav className="space-y-1 px-3 pb-2">
         {navItems.map((item) => (
           <SidebarNavItem key={item.to} {...item} />
         ))}
       </nav>
+
+      <div className="px-3 pb-2">
+        <Separator className="bg-sidebar-border" />
+      </div>
+
+      <SidebarConversations />
 
       <div className="p-3">
         <Separator className="mb-3 bg-sidebar-border" />

@@ -16,6 +16,7 @@ with stop/regenerate/copy, running fully offline against Ollama.
 | Routing    | React Router (hash router)                  |
 | Animation  | Framer Motion                               |
 | AI         | Ollama (local, streaming over its HTTP API) |
+| Storage    | SQLite (better-sqlite3) + Drizzle ORM       |
 | Chat state | Zustand                                     |
 | Markdown   | react-markdown + remark-gfm + Prism         |
 | Packaging  | Electron Builder (Windows NSIS)             |
@@ -33,11 +34,15 @@ with stop/regenerate/copy, running fully offline against Ollama.
 2. Install and run Luna:
 
    ```bash
-   npm install        # install dependencies
+   npm install        # install dependencies (also rebuilds SQLite for Electron)
    npm run dev        # start Vite + Electron in development (HMR)
    npm run build      # typecheck + build renderer and electron bundles
    npm run dist:win   # build + package a Windows installer into release/
+   npm run db:generate  # regenerate SQL migrations after editing the schema
    ```
+
+Conversations are stored locally in SQLite (`%APPDATA%/luna/luna.db`);
+migrations in `drizzle/` are applied automatically at app startup.
 
 ## Architecture
 
@@ -81,12 +86,14 @@ React components → chat store (zustand adapter) → ConversationManager
 ```
 electron/
   backend/
+    db/           # Drizzle schema, SQLite client, conversation repository
     providers/    # MainAiProvider interface, Ollama impl, registry
-  controllers/    # AI controller (streams, cancel, health)
-  ipc/            # channel registration
+  controllers/    # AI + conversations controllers
+  ipc/            # channel registration per domain
   main.ts         # main-process composition root
   preload.ts
-shared/           # IPC contract + structured logger (main + renderer)
+drizzle/          # generated SQL migrations (applied at startup)
+shared/           # IPC contracts + structured logger (main + renderer)
 docs/             # architecture documentation
 src/
   ai/             # AI core: provider/, models/, prompt/, context/,
@@ -107,6 +114,7 @@ src/
     settings/
   services/       # non-AI boundaries (window controls)
   store/
-    chat/         # thin zustand adapter over the conversation manager
+    chat/           # active thread — thin adapter over the conversation manager
+    conversations/  # saved-conversation catalog for sidebar/history
   types/
 ```

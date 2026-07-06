@@ -3,6 +3,8 @@ import { createLogger, setLogLevel } from "@shared/logger";
 import { type AiConfig, defaultAiConfig } from "./config/ai.config";
 import { SlidingWindowContextManager } from "./context/sliding-window";
 import { ConversationManager } from "./conversation/conversation-manager";
+import type { ConversationRepository } from "./conversation/conversation-repository";
+import { IpcConversationRepository } from "./conversation/ipc-conversation-repository";
 import { PromptBuilder } from "./prompt/prompt-builder";
 import type { AIProvider } from "./provider/ai-provider";
 import { createProvider } from "./provider/provider-factory";
@@ -29,27 +31,34 @@ export interface AiCore {
   config: AiConfig;
   provider: AIProvider;
   conversation: ConversationManager;
+  conversationRepository: ConversationRepository;
 }
 
 export interface AiCoreOverrides {
   config?: Partial<AiConfig>;
   /** Inject a ready-made provider (tests, future alternate providers). */
   provider?: AIProvider;
+  /** Inject a repository (tests use an in-memory one). */
+  conversationRepository?: ConversationRepository;
 }
 
 export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
   const config: AiConfig = { ...defaultAiConfig, ...overrides.config };
   const provider = overrides.provider ?? createProvider(config.providerId);
+  const conversationRepository =
+    overrides.conversationRepository ??
+    new IpcConversationRepository(window.luna?.conversations);
 
   const conversation = new ConversationManager({
     provider,
     config,
     promptBuilder: new PromptBuilder(config.systemPrompt),
     contextManager: new SlidingWindowContextManager(),
+    repository: conversationRepository,
     logger: createLogger("ai:conversation"),
   });
 
-  return { config, provider, conversation };
+  return { config, provider, conversation, conversationRepository };
 }
 
 if (import.meta.env.DEV) setLogLevel("debug");
