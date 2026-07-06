@@ -9,6 +9,7 @@ import type {
   ConversationState,
   GenerationHandle,
 } from "@/ai/types";
+import type { ConversationMemoryPort } from "@/ai/memory/memory-service";
 import type { ConversationMeta } from "@shared/conversations";
 import { PersistenceError } from "@shared/conversations";
 import type { Logger } from "@shared/logger";
@@ -56,6 +57,7 @@ export interface ConversationDeps {
   promptBuilder: PromptBuilder;
   contextManager: ContextManager;
   repository: ConversationRepository;
+  memory: ConversationMemoryPort;
   logger: Logger;
 }
 
@@ -82,6 +84,8 @@ export class ConversationManager {
   private persistenceOk = true;
   /** Invalidates in-flight stream callbacks when the thread switches. */
   private epoch = 0;
+  /** User text to mine for memories once the current exchange completes. */
+  private pendingExtractionText: string | null = null;
 
   constructor(private readonly deps: ConversationDeps) {}
 
@@ -133,6 +137,8 @@ export class ConversationManager {
       createdAt: Date.now(),
     };
     this.setState({ error: null, messages: [...this.state.messages, userMessage] });
+    // Mine this message for memories once the exchange finishes.
+    this.pendingExtractionText = userMessage.content;
 
     this.enqueuePersist(async () => {
       const conversationId = await this.ensureConversation();
@@ -291,6 +297,17 @@ export class ConversationManager {
     this.maybeGenerateTitle();
   }
 
+  /**
+   * Mines the just-completed user message for memory candidates. Runs
+   * after generation so it never competes with streaming for the model.
+   */
+  private runPendingExtraction(): void {
+    const text = this.pendingExtractionText;
+    this.pendingExtractionText = null;
+    if (!text) return;
+    this.deps.memory.observeUserMessage(text, this.activeConversationId);
+  }
+
   // -- Auto title -----------------------------------------------------------
 
   /** After the first completed exchange, ask the model for a 3–5 word title. */
@@ -340,22 +357,14 @@ export class ConversationManager {
 
   // -- Generation -----------------------------------------------------------
 
-  /** Streams a reply to the current history (which must end with a user turn). */
+  /**
+   * Shows the pending assistant bubble immediately, then (asynchronously)
+   * retrieves relevant memories and starts streaming. Retrieval happens
+   * behind the typing indicator so the UI never stalls.
+   */
   private startGeneration(): void {
-    const { provider, config, promptBuilder, contextManager, logger } = this.deps;
     const epoch = this.epoch;
-
-    const history: AiChatMessage[] = this.state.messages.map(({ role, content }) => ({
-      role,
-      content,
-    }));
-    const prompt = promptBuilder.build({ history });
-
-    const model = resolveModel(config.model);
-    const fitted = contextManager.fitToWindow(prompt, {
-      contextLength: model.contextLength,
-      reservedForResponse: config.maxTokens,
-    });
+    const query = [...this.state.messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
     this.setState({
       status: "waiting",
@@ -364,6 +373,28 @@ export class ConversationManager {
         ...this.state.messages,
         { id: crypto.randomUUID(), role: "assistant", content: "", createdAt: Date.now() },
       ],
+    });
+
+    void this.beginStream(epoch, query);
+  }
+
+  private async beginStream(epoch: number, query: string): Promise<void> {
+    const { provider, config, promptBuilder, contextManager, logger } = this.deps;
+
+    // Retrieve only memories relevant to this turn, and inject them.
+    const memory = await this.deps.memory.getRelevantMemories(query);
+    if (epoch !== this.epoch) return; // thread switched while retrieving
+    if (memory.length > 0) logger.debug("injected memories", { count: memory.length });
+
+    const history: AiChatMessage[] = this.state.messages
+      .filter((m) => m.content !== "" || m.role === "user")
+      .map(({ role, content }) => ({ role, content }));
+    const prompt = promptBuilder.build({ history, memory });
+
+    const model = resolveModel(config.model);
+    const fitted = contextManager.fitToWindow(prompt, {
+      contextLength: model.contextLength,
+      reservedForResponse: config.maxTokens,
     });
 
     this.handle = provider.stream(
@@ -390,6 +421,7 @@ export class ConversationManager {
             cancelled ? { ...last, interrupted: true } : last,
           );
           if (completed) this.persistAssistantMessage(completed);
+          this.runPendingExtraction();
           logger.debug("generation done", { cancelled });
         },
         onError: (error) => {

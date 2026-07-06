@@ -5,6 +5,10 @@ import { SlidingWindowContextManager } from "./context/sliding-window";
 import { ConversationManager } from "./conversation/conversation-manager";
 import type { ConversationRepository } from "./conversation/conversation-repository";
 import { IpcConversationRepository } from "./conversation/ipc-conversation-repository";
+import { IpcMemoryRepository } from "./memory/ipc-memory-repository";
+import { MemoryExtractor } from "./memory/memory-extractor";
+import type { MemoryRepository } from "./memory/memory-repository";
+import { MemoryService } from "./memory/memory-service";
 import { PromptBuilder } from "./prompt/prompt-builder";
 import type { AIProvider } from "./provider/ai-provider";
 import { createProvider } from "./provider/provider-factory";
@@ -32,6 +36,8 @@ export interface AiCore {
   provider: AIProvider;
   conversation: ConversationManager;
   conversationRepository: ConversationRepository;
+  memory: MemoryService;
+  memoryRepository: MemoryRepository;
 }
 
 export interface AiCoreOverrides {
@@ -40,6 +46,7 @@ export interface AiCoreOverrides {
   provider?: AIProvider;
   /** Inject a repository (tests use an in-memory one). */
   conversationRepository?: ConversationRepository;
+  memoryRepository?: MemoryRepository;
 }
 
 export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
@@ -48,6 +55,14 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
   const conversationRepository =
     overrides.conversationRepository ??
     new IpcConversationRepository(window.luna?.conversations);
+  const memoryRepository =
+    overrides.memoryRepository ?? new IpcMemoryRepository(window.luna?.memory);
+
+  const memory = new MemoryService(
+    memoryRepository,
+    new MemoryExtractor(provider, config.model, createLogger("ai:memory:extractor")),
+    createLogger("ai:memory"),
+  );
 
   const conversation = new ConversationManager({
     provider,
@@ -55,10 +70,11 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     promptBuilder: new PromptBuilder(config.systemPrompt),
     contextManager: new SlidingWindowContextManager(),
     repository: conversationRepository,
+    memory,
     logger: createLogger("ai:conversation"),
   });
 
-  return { config, provider, conversation, conversationRepository };
+  return { config, provider, conversation, conversationRepository, memory, memoryRepository };
 }
 
 if (import.meta.env.DEV) setLogLevel("debug");

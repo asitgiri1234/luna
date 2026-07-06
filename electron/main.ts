@@ -8,8 +8,10 @@ import { initDatabase } from "./backend/db/client";
 import { createDefaultProviderRegistry } from "./backend/providers/registry";
 import { AiController } from "./controllers/ai.controller";
 import { ConversationsController } from "./controllers/conversations.controller";
+import { MemoryController } from "./controllers/memory.controller";
 import { registerAiIpc } from "./ipc/ai.ipc";
 import { registerConversationsIpc } from "./ipc/conversations.ipc";
+import { registerMemoryIpc } from "./ipc/memory.ipc";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -98,6 +100,7 @@ app.whenReady().then(() => {
   registerAiIpc(new AiController(createDefaultProviderRegistry()));
   initDatabase();
   registerConversationsIpc(new ConversationsController());
+  registerMemoryIpc(new MemoryController());
   createMainWindow();
   log.info("app ready", { dev: Boolean(VITE_DEV_SERVER_URL) });
 

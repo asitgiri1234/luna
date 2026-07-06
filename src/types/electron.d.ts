@@ -6,6 +6,15 @@ import type {
   SaveMessageInput,
   StoredMessage,
 } from "@shared/conversations";
+import type {
+  AddRuleInput,
+  CandidateDisposition,
+  MemoryCandidate,
+  MemoryRecord,
+  SaveMemoryInput,
+  SaveMemoryResult,
+  UpdateMemoryInput,
+} from "@shared/memory";
 
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
@@ -41,10 +50,23 @@ export interface LunaConversationsApi {
   touch: (id: string, preview?: string) => Promise<DbResult<null>>;
 }
 
+export interface LunaMemoryApi {
+  save: (input: SaveMemoryInput) => Promise<DbResult<SaveMemoryResult>>;
+  update: (input: UpdateMemoryInput) => Promise<DbResult<null>>;
+  archive: (id: string, isArchived: boolean) => Promise<DbResult<null>>;
+  remove: (id: string) => Promise<DbResult<null>>;
+  list: () => Promise<DbResult<MemoryRecord[]>>;
+  search: (query: string) => Promise<DbResult<MemoryRecord[]>>;
+  relevant: (query: string) => Promise<DbResult<MemoryRecord[]>>;
+  addRule: (input: AddRuleInput) => Promise<DbResult<null>>;
+  classify: (candidate: MemoryCandidate) => Promise<DbResult<CandidateDisposition>>;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
   ai: LunaAiApi;
   conversations: LunaConversationsApi;
+  memory: LunaMemoryApi;
   platform: NodeJS.Platform;
 }
 

@@ -1,3 +1,4 @@
+import { MemoryApprovalStack } from "@/components/memory/MemoryApprovalStack";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
 import { useChatStore } from "@/store/chat/chat.store";
 
@@ -10,7 +11,10 @@ export function ChatPage() {
   return (
     <div className="flex h-full flex-col">
       {hasMessages ? <ChatMessageList /> : <ChatEmptyState />}
-      <ChatComposer />
+      <div className="relative">
+        <MemoryApprovalStack />
+        <ChatComposer />
+      </div>
     </div>
   );
 }

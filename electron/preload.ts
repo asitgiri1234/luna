@@ -14,6 +14,16 @@ import {
   type SaveMessageInput,
   type StoredMessage,
 } from "../shared/conversations";
+import {
+  type AddRuleInput,
+  type CandidateDisposition,
+  MEMORY_CHANNELS,
+  type MemoryCandidate,
+  type MemoryRecord,
+  type SaveMemoryInput,
+  type SaveMemoryResult,
+  type UpdateMemoryInput,
+} from "../shared/memory";
 
 /**
  * The only bridge between the renderer and the main process.
@@ -68,6 +78,25 @@ const lunaApi = {
       ipcRenderer.invoke(CONVERSATION_CHANNELS.loadMessages, conversationId),
     touch: (id: string, preview?: string): Promise<DbResult<null>> =>
       ipcRenderer.invoke(CONVERSATION_CHANNELS.touch, id, preview),
+  },
+  memory: {
+    save: (input: SaveMemoryInput): Promise<DbResult<SaveMemoryResult>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.save, input),
+    update: (input: UpdateMemoryInput): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.update, input),
+    archive: (id: string, isArchived: boolean): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.archive, id, isArchived),
+    remove: (id: string): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.remove, id),
+    list: (): Promise<DbResult<MemoryRecord[]>> => ipcRenderer.invoke(MEMORY_CHANNELS.list),
+    search: (query: string): Promise<DbResult<MemoryRecord[]>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.search, query),
+    relevant: (query: string): Promise<DbResult<MemoryRecord[]>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.relevant, query),
+    addRule: (input: AddRuleInput): Promise<DbResult<null>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.addRule, input),
+    classify: (candidate: MemoryCandidate): Promise<DbResult<CandidateDisposition>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.classify, candidate),
   },
   platform: process.platform,
 };

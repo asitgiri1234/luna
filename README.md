@@ -86,9 +86,9 @@ React components → chat store (zustand adapter) → ConversationManager
 ```
 electron/
   backend/
-    db/           # Drizzle schema, SQLite client, conversation repository
+    db/           # Drizzle schema, SQLite client, conversation + memory repos
     providers/    # MainAiProvider interface, Ollama impl, registry
-  controllers/    # AI + conversations controllers
+  controllers/    # AI, conversations, memory controllers
   ipc/            # channel registration per domain
   main.ts         # main-process composition root
   preload.ts
@@ -97,7 +97,7 @@ shared/           # IPC contracts + structured logger (main + renderer)
 docs/             # architecture documentation
 src/
   ai/             # AI core: provider/, models/, prompt/, context/,
-                  # conversation/, config/, errors/, types/, index.ts (DI root)
+                  # conversation/, memory/, config/, errors/, types/, index.ts (DI root)
   assets/
   components/
     chat/         # message list, bubbles, markdown, code blocks, errors
@@ -116,5 +116,9 @@ src/
   store/
     chat/           # active thread — thin adapter over the conversation manager
     conversations/  # saved-conversation catalog for sidebar/history
+    memory/         # approval candidates + saved-memory catalog
   types/
 ```
+
+The Personal Memory Engine (privacy-first, approval-gated) is documented
+in [docs/memory-architecture.md](docs/memory-architecture.md).

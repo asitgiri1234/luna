@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * # Database schema (Drizzle ORM, SQLite)
@@ -37,3 +37,41 @@ export const messages = sqliteTable(
   },
   (table) => [index("idx_messages_conversation").on(table.conversationId)],
 );
+
+/**
+ * Personal Memory Engine. Durable facts the user has approved Luna to
+ * remember. `source_conversation_id` is nullable and set to null when
+ * the originating conversation is deleted, so the memory survives.
+ */
+export const memories = sqliteTable(
+  "memories",
+  {
+    id: text("id").primaryKey(),
+    category: text("category").notNull(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    confidence: real("confidence").notNull().default(1),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    lastUsed: integer("last_used"),
+    sourceConversationId: text("source_conversation_id").references(
+      () => conversations.id,
+      { onDelete: "set null" },
+    ),
+    isArchived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+  },
+  (table) => [index("idx_memories_category").on(table.category)],
+);
+
+/**
+ * "Always / never remember similar" rules the user created from an
+ * approval card. `tokens` is a space-joined bag of words describing the
+ * candidate a rule generalizes from; matching is by token similarity.
+ */
+export const memoryRules = sqliteTable("memory_rules", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  category: text("category").notNull(),
+  tokens: text("tokens").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
