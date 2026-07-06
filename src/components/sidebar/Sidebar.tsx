@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useChatStore } from "@/store/chat/chat.store";
 
 import { SidebarNavItem } from "./SidebarNavItem";
 
@@ -14,6 +15,7 @@ const navItems = [
 
 export function Sidebar() {
   const navigate = useNavigate();
+  const newChat = useChatStore((state) => state.newChat);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -21,7 +23,10 @@ export function Sidebar() {
         <Button
           variant="outline"
           className="w-full justify-start gap-2 rounded-xl border-border/70 bg-transparent text-sm font-medium hover:bg-sidebar-accent"
-          onClick={() => navigate("/chat")}
+          onClick={() => {
+            newChat();
+            navigate("/chat");
+          }}
         >
           <Plus className="h-4 w-4" />
           New Chat

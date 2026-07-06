@@ -1,3 +1,5 @@
+import type { ChatStartPayload, ChatStreamEvent } from "@shared/ai";
+
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
  * via `contextBridge.exposeInMainWorld("luna", ...)`.
@@ -12,8 +14,15 @@ export interface LunaWindowApi {
   onMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
 }
 
+export interface LunaChatApi {
+  start: (payload: ChatStartPayload) => void;
+  cancel: (requestId: string) => void;
+  onEvent: (callback: (event: ChatStreamEvent) => void) => () => void;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
+  chat: LunaChatApi;
   platform: NodeJS.Platform;
 }
 

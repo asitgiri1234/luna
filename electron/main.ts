@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { BrowserWindow, app, ipcMain, shell } from "electron";
 
+import { registerChatIpc } from "./ipc/chat.ipc";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Project layout produced by vite / vite-plugin-electron:
@@ -82,6 +84,7 @@ function registerWindowControls(): void {
 
 app.whenReady().then(() => {
   registerWindowControls();
+  registerChatIpc();
   createMainWindow();
 
   app.on("activate", () => {

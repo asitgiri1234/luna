@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+import {
+  CHAT_CHANNELS,
+  type ChatStartPayload,
+  type ChatStreamEvent,
+} from "../shared/ai";
+
 /**
  * The only bridge between the renderer and the main process.
  * Keep this surface minimal and typed — everything exposed here is
@@ -18,6 +24,17 @@ const lunaApi = {
         callback(value);
       ipcRenderer.on("window:maximized-changed", listener);
       return () => ipcRenderer.off("window:maximized-changed", listener);
+    },
+  },
+  chat: {
+    start: (payload: ChatStartPayload): void =>
+      ipcRenderer.send(CHAT_CHANNELS.start, payload),
+    cancel: (requestId: string): void => ipcRenderer.send(CHAT_CHANNELS.cancel, requestId),
+    onEvent: (callback: (event: ChatStreamEvent) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, value: ChatStreamEvent): void =>
+        callback(value);
+      ipcRenderer.on(CHAT_CHANNELS.event, listener);
+      return () => ipcRenderer.off(CHAT_CHANNELS.event, listener);
     },
   },
   platform: process.platform,

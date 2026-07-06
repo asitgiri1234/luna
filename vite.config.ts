@@ -22,6 +22,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "@shared": path.resolve(__dirname, "shared"),
     },
   },
   // Relative base so the packaged app can load assets from the local filesystem.
