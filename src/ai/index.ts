@@ -12,6 +12,8 @@ import { MemoryService } from "./memory/memory-service";
 import { PromptBuilder } from "./prompt/prompt-builder";
 import type { AIProvider } from "./provider/ai-provider";
 import { createProvider } from "./provider/provider-factory";
+import { type ToolSystem, createToolSystem } from "./tools";
+import type { ExecutionRequest } from "./tools/types";
 
 /**
  * # AI core composition root
@@ -38,6 +40,7 @@ export interface AiCore {
   conversationRepository: ConversationRepository;
   memory: MemoryService;
   memoryRepository: MemoryRepository;
+  tools: ToolSystem;
 }
 
 export interface AiCoreOverrides {
@@ -74,10 +77,48 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     logger: createLogger("ai:conversation"),
   });
 
-  return { config, provider, conversation, conversationRepository, memory, memoryRepository };
+  const tools = createToolSystem({
+    provider,
+    model: config.model,
+    platform: typeof window !== "undefined" ? (window.luna?.platform ?? "unknown") : "unknown",
+  });
+
+  return {
+    config,
+    provider,
+    conversation,
+    conversationRepository,
+    memory,
+    memoryRepository,
+    tools,
+  };
 }
 
 if (import.meta.env.DEV) setLogLevel("debug");
 
 /** The application-wide AI core, built once at startup. */
 export const aiCore: AiCore = createAiCore();
+
+/**
+ * Programmatic entry point to the tool-planning framework. It plans and
+ * routes tool use but NEVER executes — the executing milestone and any
+ * agent UI consume `plan()`'s `ExecutionRequest`. Exposed on `window`
+ * so those future surfaces (and integration tests) have a stable hook.
+ */
+export interface LunaAgentApi {
+  plan: (message: string) => Promise<ExecutionRequest>;
+  listTools: () => ReturnType<AiCore["tools"]["service"]["listTools"]>;
+}
+
+declare global {
+  interface Window {
+    lunaAgent?: LunaAgentApi;
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.lunaAgent = {
+    plan: (message) => aiCore.tools.service.plan(message),
+    listTools: () => aiCore.tools.service.listTools(),
+  };
+}

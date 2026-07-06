@@ -97,7 +97,7 @@ shared/           # IPC contracts + structured logger (main + renderer)
 docs/             # architecture documentation
 src/
   ai/             # AI core: provider/, models/, prompt/, context/,
-                  # conversation/, memory/, config/, errors/, types/, index.ts (DI root)
+                  # conversation/, memory/, tools/, config/, errors/, types/, index.ts (DI root)
   assets/
   components/
     chat/         # message list, bubbles, markdown, code blocks, errors
@@ -121,4 +121,6 @@ src/
 ```
 
 The Personal Memory Engine (privacy-first, approval-gated) is documented
-in [docs/memory-architecture.md](docs/memory-architecture.md).
+in [docs/memory-architecture.md](docs/memory-architecture.md). The Tool
+Calling Framework (planning + routing only, no execution) is documented
+in [docs/tool-architecture.md](docs/tool-architecture.md).
