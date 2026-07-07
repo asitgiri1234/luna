@@ -98,6 +98,8 @@ docs/             # architecture documentation
 src/
   ai/             # AI core: provider/, models/, prompt/, context/,
                   # conversation/, memory/, tools/, config/, errors/, types/, index.ts (DI root)
+  automation/     # Desktop Automation Engine: executor/, permission/, per-tool executors
+                  # (applications, filesystem, notes, clipboard, browser, calculator, reminders)
   assets/
   components/
     chat/         # message list, bubbles, markdown, code blocks, errors
@@ -122,5 +124,7 @@ src/
 
 The Personal Memory Engine (privacy-first, approval-gated) is documented
 in [docs/memory-architecture.md](docs/memory-architecture.md). The Tool
-Calling Framework (planning + routing only, no execution) is documented
-in [docs/tool-architecture.md](docs/tool-architecture.md).
+Calling Framework (planning + routing) is documented in
+[docs/tool-architecture.md](docs/tool-architecture.md), and the Desktop
+Automation Engine (permission-gated execution) in
+[docs/automation-architecture.md](docs/automation-architecture.md).

@@ -15,6 +15,13 @@
       "when": 1783345779524,
       "tag": "0001_memory",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1783399181449,
+      "tag": "0002_automation",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,19 @@ import type {
   SaveMemoryResult,
   UpdateMemoryInput,
 } from "@shared/memory";
+import type {
+  AppInfo,
+  AutomationResult,
+  ClipboardReadResult,
+  CreateNoteInput,
+  CreateReminderInput,
+  FileHit,
+  LaunchAppResult,
+  NoteRecord,
+  ReminderRecord,
+  SearchFilesInput,
+  UpdateNoteInput,
+} from "@shared/automation";
 
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
@@ -62,11 +75,33 @@ export interface LunaMemoryApi {
   classify: (candidate: MemoryCandidate) => Promise<DbResult<CandidateDisposition>>;
 }
 
+export interface LunaAutomationApi {
+  listApps: () => Promise<AutomationResult<AppInfo[]>>;
+  launchApp: (name: string) => Promise<AutomationResult<LaunchAppResult>>;
+  searchFiles: (input: SearchFilesInput) => Promise<AutomationResult<FileHit[]>>;
+  openFile: (path: string) => Promise<AutomationResult<null>>;
+  revealFile: (path: string) => Promise<AutomationResult<null>>;
+  openFolder: (path: string) => Promise<AutomationResult<null>>;
+  clipboardRead: () => Promise<AutomationResult<ClipboardReadResult>>;
+  clipboardWrite: (text: string) => Promise<AutomationResult<null>>;
+  clipboardClear: () => Promise<AutomationResult<null>>;
+  notify: (title: string, body: string) => Promise<AutomationResult<null>>;
+  openUrl: (url: string) => Promise<AutomationResult<null>>;
+  createReminder: (input: CreateReminderInput) => Promise<AutomationResult<ReminderRecord>>;
+  listReminders: () => Promise<AutomationResult<ReminderRecord[]>>;
+  deleteReminder: (id: string) => Promise<AutomationResult<null>>;
+  createNote: (input: CreateNoteInput) => Promise<AutomationResult<NoteRecord>>;
+  updateNote: (input: UpdateNoteInput) => Promise<AutomationResult<NoteRecord>>;
+  openNote: (id: string) => Promise<AutomationResult<null>>;
+  listNotes: () => Promise<AutomationResult<NoteRecord[]>>;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
   ai: LunaAiApi;
   conversations: LunaConversationsApi;
   memory: LunaMemoryApi;
+  automation: LunaAutomationApi;
   platform: NodeJS.Platform;
 }
 

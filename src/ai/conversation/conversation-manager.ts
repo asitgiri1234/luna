@@ -10,6 +10,7 @@ import type {
   GenerationHandle,
 } from "@/ai/types";
 import type { ConversationMemoryPort } from "@/ai/memory/memory-service";
+import type { ConversationAutomationPort } from "@/automation/automation.service";
 import type { ConversationMeta } from "@shared/conversations";
 import { PersistenceError } from "@shared/conversations";
 import type { Logger } from "@shared/logger";
@@ -58,6 +59,8 @@ export interface ConversationDeps {
   contextManager: ContextManager;
   repository: ConversationRepository;
   memory: ConversationMemoryPort;
+  /** Optional: lets a user message trigger permission-gated tool execution. */
+  automation?: ConversationAutomationPort;
   logger: Logger;
 }
 
@@ -306,6 +309,10 @@ export class ConversationManager {
     this.pendingExtractionText = null;
     if (!text) return;
     this.deps.memory.observeUserMessage(text, this.activeConversationId);
+    // A user message may also imply a tool action; the automation service
+    // pre-filters and, if warranted, plans + executes behind the permission
+    // gate. Fire-and-forget so it never blocks chat.
+    this.deps.automation?.observeUserMessage(text);
   }
 
   // -- Auto title -----------------------------------------------------------

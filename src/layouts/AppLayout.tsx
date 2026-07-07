@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Outlet, useLocation } from "react-router-dom";
 
+import { PermissionDialog } from "@/components/automation/PermissionDialog";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { TitleBar } from "@/components/titlebar/TitleBar";
 
@@ -31,6 +32,7 @@ export function AppLayout() {
           </AnimatePresence>
         </main>
       </div>
+      <PermissionDialog />
     </div>
   );
 }

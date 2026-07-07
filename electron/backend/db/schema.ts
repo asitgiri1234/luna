@@ -75,3 +75,24 @@ export const memoryRules = sqliteTable("memory_rules", {
   tokens: text("tokens").notNull(),
   createdAt: integer("created_at").notNull(),
 });
+
+/** Locally stored reminders scheduled by the automation engine. */
+export const reminders = sqliteTable("reminders", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  remindAt: integer("remind_at").notNull(),
+  createdAt: integer("created_at").notNull(),
+  notified: integer("notified", { mode: "boolean" }).notNull().default(false),
+});
+
+/**
+ * Note metadata; the note body lives in a Markdown file on disk (see
+ * `electron/automation/notes.ts`) so notes open in the user's editor.
+ */
+export const notes = sqliteTable("notes", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  path: text("path").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});

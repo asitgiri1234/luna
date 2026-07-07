@@ -9,7 +9,9 @@ import { createDefaultProviderRegistry } from "./backend/providers/registry";
 import { AiController } from "./controllers/ai.controller";
 import { ConversationsController } from "./controllers/conversations.controller";
 import { MemoryController } from "./controllers/memory.controller";
+import { initReminders, pruneReminders } from "./automation/reminders";
 import { registerAiIpc } from "./ipc/ai.ipc";
+import { registerAutomationIpc } from "./ipc/automation.ipc";
 import { registerConversationsIpc } from "./ipc/conversations.ipc";
 import { registerMemoryIpc } from "./ipc/memory.ipc";
 
@@ -96,11 +98,18 @@ app.whenReady().then(() => {
   if (VITE_DEV_SERVER_URL) setLogLevel("debug");
   const log = createLogger("main");
 
+  // Required for Windows toast notifications (reminders) to attribute
+  // correctly; must match the installer's appId.
+  if (process.platform === "win32") app.setAppUserModelId("com.asitgiri.luna");
+
   registerWindowControls();
   registerAiIpc(new AiController(createDefaultProviderRegistry()));
   initDatabase();
   registerConversationsIpc(new ConversationsController());
   registerMemoryIpc(new MemoryController());
+  registerAutomationIpc();
+  pruneReminders();
+  initReminders();
   createMainWindow();
   log.info("app ready", { dev: Boolean(VITE_DEV_SERVER_URL) });
 

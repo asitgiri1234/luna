@@ -14,6 +14,7 @@ import type { AIProvider } from "./provider/ai-provider";
 import { createProvider } from "./provider/provider-factory";
 import { type ToolSystem, createToolSystem } from "./tools";
 import type { ExecutionRequest } from "./tools/types";
+import { type AutomationSystem, createAutomationSystem } from "@/automation";
 
 /**
  * # AI core composition root
@@ -41,6 +42,7 @@ export interface AiCore {
   memory: MemoryService;
   memoryRepository: MemoryRepository;
   tools: ToolSystem;
+  automation: AutomationSystem;
 }
 
 export interface AiCoreOverrides {
@@ -67,6 +69,12 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     createLogger("ai:memory"),
   );
 
+  const platform =
+    typeof window !== "undefined" ? (window.luna?.platform ?? "unknown") : "unknown";
+
+  const tools = createToolSystem({ provider, model: config.model, platform });
+  const automation = createAutomationSystem({ planning: tools.service, platform });
+
   const conversation = new ConversationManager({
     provider,
     config,
@@ -74,13 +82,8 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     contextManager: new SlidingWindowContextManager(),
     repository: conversationRepository,
     memory,
+    automation: automation.service,
     logger: createLogger("ai:conversation"),
-  });
-
-  const tools = createToolSystem({
-    provider,
-    model: config.model,
-    platform: typeof window !== "undefined" ? (window.luna?.platform ?? "unknown") : "unknown",
   });
 
   return {
@@ -91,6 +94,7 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     memory,
     memoryRepository,
     tools,
+    automation,
   };
 }
 
@@ -107,7 +111,13 @@ export const aiCore: AiCore = createAiCore();
  */
 export interface LunaAgentApi {
   plan: (message: string) => Promise<ExecutionRequest>;
+  run: (message: string) => Promise<{ request: ExecutionRequest; results: unknown[] }>;
   listTools: () => ReturnType<AiCore["tools"]["service"]["listTools"]>;
+  /** Read-only inspection hooks for diagnostics and integration tests. */
+  debug: {
+    cards: () => ReturnType<AiCore["automation"]["engine"]["getCards"]>;
+    pending: () => ReturnType<AiCore["automation"]["permissions"]["snapshot"]>;
+  };
 }
 
 declare global {
@@ -119,6 +129,11 @@ declare global {
 if (typeof window !== "undefined") {
   window.lunaAgent = {
     plan: (message) => aiCore.tools.service.plan(message),
+    run: (message) => aiCore.automation.service.run(message),
     listTools: () => aiCore.tools.service.listTools(),
+    debug: {
+      cards: () => aiCore.automation.engine.getCards(),
+      pending: () => aiCore.automation.permissions.snapshot(),
+    },
   };
 }

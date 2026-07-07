@@ -24,6 +24,20 @@ import {
   type SaveMemoryResult,
   type UpdateMemoryInput,
 } from "../shared/memory";
+import {
+  AUTOMATION_CHANNELS,
+  type AppInfo,
+  type AutomationResult,
+  type ClipboardReadResult,
+  type CreateNoteInput,
+  type CreateReminderInput,
+  type FileHit,
+  type LaunchAppResult,
+  type NoteRecord,
+  type ReminderRecord,
+  type SearchFilesInput,
+  type UpdateNoteInput,
+} from "../shared/automation";
 
 /**
  * The only bridge between the renderer and the main process.
@@ -97,6 +111,44 @@ const lunaApi = {
       ipcRenderer.invoke(MEMORY_CHANNELS.addRule, input),
     classify: (candidate: MemoryCandidate): Promise<DbResult<CandidateDisposition>> =>
       ipcRenderer.invoke(MEMORY_CHANNELS.classify, candidate),
+  },
+  automation: {
+    listApps: (): Promise<AutomationResult<AppInfo[]>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.appsList),
+    launchApp: (name: string): Promise<AutomationResult<LaunchAppResult>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.appLaunch, name),
+    searchFiles: (input: SearchFilesInput): Promise<AutomationResult<FileHit[]>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.fileSearch, input),
+    openFile: (path: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.fileOpen, path),
+    revealFile: (path: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.fileReveal, path),
+    openFolder: (path: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.folderOpen, path),
+    clipboardRead: (): Promise<AutomationResult<ClipboardReadResult>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.clipboardRead),
+    clipboardWrite: (text: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.clipboardWrite, text),
+    clipboardClear: (): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.clipboardClear),
+    notify: (title: string, body: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.notify, title, body),
+    openUrl: (url: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.openUrl, url),
+    createReminder: (input: CreateReminderInput): Promise<AutomationResult<ReminderRecord>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.reminderCreate, input),
+    listReminders: (): Promise<AutomationResult<ReminderRecord[]>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.reminderList),
+    deleteReminder: (id: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.reminderDelete, id),
+    createNote: (input: CreateNoteInput): Promise<AutomationResult<NoteRecord>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.noteCreate, input),
+    updateNote: (input: UpdateNoteInput): Promise<AutomationResult<NoteRecord>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.noteUpdate, input),
+    openNote: (id: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.noteOpen, id),
+    listNotes: (): Promise<AutomationResult<NoteRecord[]>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.noteList),
   },
   platform: process.platform,
 };
