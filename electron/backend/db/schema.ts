@@ -96,3 +96,23 @@ export const notes = sqliteTable("notes", {
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
+
+/**
+ * Uploaded files. Bytes are copied into the Luna Workspace;
+ * `storage_location` is relative to the workspace root (never absolute),
+ * so the workspace stays portable. `hash` (sha256) enables de-duplication.
+ */
+export const files = sqliteTable(
+  "files",
+  {
+    id: text("id").primaryKey(),
+    filename: text("filename").notNull(),
+    type: text("type").notNull(),
+    size: integer("size").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    hash: text("hash").notNull(),
+    storageLocation: text("storage_location").notNull(),
+  },
+  (table) => [index("idx_files_hash").on(table.hash)],
+);

@@ -28,6 +28,13 @@ import type {
   SearchFilesInput,
   UpdateNoteInput,
 } from "@shared/automation";
+import type {
+  FileOpResult,
+  FilePreview,
+  FileProgress,
+  FileRecord,
+  ImportFileResult,
+} from "@shared/files";
 
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
@@ -96,12 +103,26 @@ export interface LunaAutomationApi {
   listNotes: () => Promise<AutomationResult<NoteRecord[]>>;
 }
 
+export interface LunaFilesApi {
+  pick: () => Promise<FileOpResult<string[]>>;
+  import: (uploadId: string, sourcePath: string) => Promise<FileOpResult<ImportFileResult>>;
+  list: () => Promise<FileOpResult<FileRecord[]>>;
+  rename: (id: string, filename: string) => Promise<FileOpResult<FileRecord>>;
+  remove: (id: string) => Promise<FileOpResult<null>>;
+  preview: (id: string) => Promise<FileOpResult<FilePreview>>;
+  open: (id: string) => Promise<FileOpResult<null>>;
+  reveal: (id: string) => Promise<FileOpResult<null>>;
+  pathForFile: (file: File) => string;
+  onProgress: (callback: (progress: FileProgress) => void) => () => void;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
   ai: LunaAiApi;
   conversations: LunaConversationsApi;
   memory: LunaMemoryApi;
   automation: LunaAutomationApi;
+  files: LunaFilesApi;
   platform: NodeJS.Platform;
 }
 

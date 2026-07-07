@@ -100,6 +100,7 @@ src/
                   # conversation/, memory/, tools/, config/, errors/, types/, index.ts (DI root)
   automation/     # Desktop Automation Engine: executor/, permission/, per-tool executors
                   # (applications, filesystem, notes, clipboard, browser, calculator, reminders)
+  files/          # File Upload Infrastructure: renderer file service (IPC client)
   assets/
   components/
     chat/         # message list, bubbles, markdown, code blocks, errors
@@ -125,6 +126,8 @@ src/
 The Personal Memory Engine (privacy-first, approval-gated) is documented
 in [docs/memory-architecture.md](docs/memory-architecture.md). The Tool
 Calling Framework (planning + routing) is documented in
-[docs/tool-architecture.md](docs/tool-architecture.md), and the Desktop
+[docs/tool-architecture.md](docs/tool-architecture.md), the Desktop
 Automation Engine (permission-gated execution) in
-[docs/automation-architecture.md](docs/automation-architecture.md).
+[docs/automation-architecture.md](docs/automation-architecture.md), and
+the File Upload Infrastructure (local workspace, no AI) in
+[docs/files-architecture.md](docs/files-architecture.md).

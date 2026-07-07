@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import {
   AI_CHANNELS,
@@ -38,6 +38,14 @@ import {
   type SearchFilesInput,
   type UpdateNoteInput,
 } from "../shared/automation";
+import {
+  FILE_CHANNELS,
+  type FileOpResult,
+  type FilePreview,
+  type FileProgress,
+  type FileRecord,
+  type ImportFileResult,
+} from "../shared/files";
 
 /**
  * The only bridge between the renderer and the main process.
@@ -149,6 +157,30 @@ const lunaApi = {
       ipcRenderer.invoke(AUTOMATION_CHANNELS.noteOpen, id),
     listNotes: (): Promise<AutomationResult<NoteRecord[]>> =>
       ipcRenderer.invoke(AUTOMATION_CHANNELS.noteList),
+  },
+  files: {
+    pick: (): Promise<FileOpResult<string[]>> => ipcRenderer.invoke(FILE_CHANNELS.pick),
+    import: (uploadId: string, sourcePath: string): Promise<FileOpResult<ImportFileResult>> =>
+      ipcRenderer.invoke(FILE_CHANNELS.import, uploadId, sourcePath),
+    list: (): Promise<FileOpResult<FileRecord[]>> => ipcRenderer.invoke(FILE_CHANNELS.list),
+    rename: (id: string, filename: string): Promise<FileOpResult<FileRecord>> =>
+      ipcRenderer.invoke(FILE_CHANNELS.rename, id, filename),
+    remove: (id: string): Promise<FileOpResult<null>> =>
+      ipcRenderer.invoke(FILE_CHANNELS.remove, id),
+    preview: (id: string): Promise<FileOpResult<FilePreview>> =>
+      ipcRenderer.invoke(FILE_CHANNELS.preview, id),
+    open: (id: string): Promise<FileOpResult<null>> =>
+      ipcRenderer.invoke(FILE_CHANNELS.open, id),
+    reveal: (id: string): Promise<FileOpResult<null>> =>
+      ipcRenderer.invoke(FILE_CHANNELS.reveal, id),
+    /** Resolve an absolute path for a dropped File (Electron webUtils). */
+    pathForFile: (file: File): string => webUtils.getPathForFile(file),
+    onProgress: (callback: (progress: FileProgress) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, value: FileProgress): void =>
+        callback(value);
+      ipcRenderer.on(FILE_CHANNELS.progress, listener);
+      return () => ipcRenderer.off(FILE_CHANNELS.progress, listener);
+    },
   },
   platform: process.platform,
 };
