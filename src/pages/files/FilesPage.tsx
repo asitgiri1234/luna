@@ -2,12 +2,14 @@ import { useEffect, useMemo } from "react";
 
 import { FolderOpen, UploadCloud } from "lucide-react";
 
+import { DocumentDetail } from "@/components/documents/DocumentDetail";
 import { FileCard } from "@/components/files/FileCard";
 import { FileDropzone } from "@/components/files/FileDropzone";
 import { FilesToolbar } from "@/components/files/FilesToolbar";
 import { UploadList } from "@/components/files/UploadList";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/layouts/PageContainer";
+import { useDocumentsStore } from "@/store/documents/documents.store";
 import { computeVisibleFiles, useFilesStore } from "@/store/files/files.store";
 
 /**
@@ -25,6 +27,9 @@ export function FilesPage() {
   const refresh = useFilesStore((state) => state.refresh);
   const pickAndImport = useFilesStore((state) => state.pickAndImport);
 
+  const refreshDocuments = useDocumentsStore((state) => state.refresh);
+  const ensureProcessed = useDocumentsStore((state) => state.ensureProcessed);
+
   const totalCount = allFiles.length;
   const files = useMemo(
     () => computeVisibleFiles(allFiles, { query, sortKey, sortDir, filter }),
@@ -33,7 +38,13 @@ export function FilesPage() {
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void refreshDocuments();
+  }, [refresh, refreshDocuments]);
+
+  // Lazily parse any document-kind files that don't have a document yet.
+  useEffect(() => {
+    if (allFiles.length > 0) ensureProcessed(allFiles);
+  }, [allFiles, ensureProcessed]);
 
   return (
     <PageContainer
@@ -66,6 +77,7 @@ export function FilesPage() {
           )}
         </div>
       </FileDropzone>
+      <DocumentDetail />
     </PageContainer>
   );
 }

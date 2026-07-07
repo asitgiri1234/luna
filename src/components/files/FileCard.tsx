@@ -3,6 +3,7 @@ import { type KeyboardEvent, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, ExternalLink, FolderOpen, Pencil, Trash2, X } from "lucide-react";
 
+import { DocumentStrip } from "@/components/documents/DocumentStrip";
 import { fileService } from "@/files/file.service";
 import { KIND_META, formatDate, formatSize } from "@/lib/file-presentation";
 import { cn } from "@/lib/utils";
@@ -105,6 +106,8 @@ export function FileCard({ file }: { file: FileRecord }) {
         <p className="text-xs text-muted-foreground">
           {formatSize(file.size)} · {formatDate(file.createdAt)}
         </p>
+
+        <DocumentStrip fileId={file.id} kind={file.type} />
 
         <div className="mt-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/file:opacity-100">
           <button

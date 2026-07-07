@@ -116,3 +116,57 @@ export const files = sqliteTable(
   },
   (table) => [index("idx_files_hash").on(table.hash)],
 );
+
+/**
+ * Document Intelligence: the structured document produced from an
+ * uploaded file (PDF / DOCX / TXT / Markdown). `content` is the full
+ * normalized text (kept for future re-chunking / embedding); `metadata`
+ * is raw JSON text for forward-compatible extras. Deleting the source
+ * file cascades to its document, which cascades to its chunks.
+ */
+export const documents = sqliteTable(
+  "documents",
+  {
+    id: text("id").primaryKey(),
+    sourceFileId: text("source_file_id")
+      .notNull()
+      .references(() => files.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    content: text("content").notNull(),
+    language: text("language").notNull(),
+    wordCount: integer("word_count").notNull(),
+    pageCount: integer("page_count").notNull(),
+    paragraphCount: integer("paragraph_count").notNull(),
+    readingTimeMinutes: integer("reading_time_minutes").notNull(),
+    author: text("author"),
+    documentCreatedAt: integer("document_created_at"),
+    chunkCount: integer("chunk_count").notNull().default(0),
+    status: text("status").notNull(),
+    error: text("error"),
+    metadata: text("metadata"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [index("idx_documents_source_file").on(table.sourceFileId)],
+);
+
+/**
+ * Ordered, chunked slices of a document, prepared for a future
+ * embedding / semantic-index milestone. `metadata` is raw JSON text
+ * (page, heading path, counts, strategy). No vectors are stored yet.
+ */
+export const documentChunks = sqliteTable(
+  "document_chunks",
+  {
+    id: text("id").primaryKey(),
+    documentId: text("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+    metadata: text("metadata"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("idx_document_chunks_document").on(table.documentId)],
+);

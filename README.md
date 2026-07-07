@@ -88,7 +88,10 @@ electron/
   backend/
     db/           # Drizzle schema, SQLite client, conversation + memory repos
     providers/    # MainAiProvider interface, Ollama impl, registry
-  controllers/    # AI, conversations, memory controllers
+  automation/     # main-side OS work (apps, filesystem, notes, reminders)
+  files/          # Luna Workspace: copy+hash store, files repository
+  documents/      # Document Intelligence pipeline: parsers, normalize, chunk, store
+  controllers/    # AI, conversations, memory, files, documents controllers
   ipc/            # channel registration per domain
   main.ts         # main-process composition root
   preload.ts
@@ -101,6 +104,7 @@ src/
   automation/     # Desktop Automation Engine: executor/, permission/, per-tool executors
                   # (applications, filesystem, notes, clipboard, browser, calculator, reminders)
   files/          # File Upload Infrastructure: renderer file service (IPC client)
+  documents/      # Document Intelligence: renderer document service (IPC client)
   assets/
   components/
     chat/         # message list, bubbles, markdown, code blocks, errors
@@ -130,4 +134,6 @@ Calling Framework (planning + routing) is documented in
 Automation Engine (permission-gated execution) in
 [docs/automation-architecture.md](docs/automation-architecture.md), and
 the File Upload Infrastructure (local workspace, no AI) in
-[docs/files-architecture.md](docs/files-architecture.md).
+[docs/files-architecture.md](docs/files-architecture.md), and the
+Document Intelligence layer (parse → normalize → chunk, no embeddings)
+in [docs/documents-architecture.md](docs/documents-architecture.md).

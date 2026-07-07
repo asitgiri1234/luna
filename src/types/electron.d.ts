@@ -35,6 +35,12 @@ import type {
   FileRecord,
   ImportFileResult,
 } from "@shared/files";
+import type {
+  DocResult,
+  DocumentChunk,
+  DocumentRecord,
+  ProcessDocumentInput,
+} from "@shared/documents";
 
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
@@ -116,6 +122,14 @@ export interface LunaFilesApi {
   onProgress: (callback: (progress: FileProgress) => void) => () => void;
 }
 
+export interface LunaDocumentsApi {
+  process: (input: ProcessDocumentInput) => Promise<DocResult<DocumentRecord>>;
+  get: (sourceFileId: string) => Promise<DocResult<DocumentRecord | null>>;
+  list: () => Promise<DocResult<DocumentRecord[]>>;
+  chunks: (documentId: string) => Promise<DocResult<DocumentChunk[]>>;
+  remove: (documentId: string) => Promise<DocResult<null>>;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
   ai: LunaAiApi;
@@ -123,6 +137,7 @@ export interface LunaApi {
   memory: LunaMemoryApi;
   automation: LunaAutomationApi;
   files: LunaFilesApi;
+  documents: LunaDocumentsApi;
   platform: NodeJS.Platform;
 }
 

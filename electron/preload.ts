@@ -46,6 +46,13 @@ import {
   type FileRecord,
   type ImportFileResult,
 } from "../shared/files";
+import {
+  DOCUMENT_CHANNELS,
+  type DocResult,
+  type DocumentChunk,
+  type DocumentRecord,
+  type ProcessDocumentInput,
+} from "../shared/documents";
 
 /**
  * The only bridge between the renderer and the main process.
@@ -181,6 +188,17 @@ const lunaApi = {
       ipcRenderer.on(FILE_CHANNELS.progress, listener);
       return () => ipcRenderer.off(FILE_CHANNELS.progress, listener);
     },
+  },
+  documents: {
+    process: (input: ProcessDocumentInput): Promise<DocResult<DocumentRecord>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.process, input),
+    get: (sourceFileId: string): Promise<DocResult<DocumentRecord | null>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.get, sourceFileId),
+    list: (): Promise<DocResult<DocumentRecord[]>> => ipcRenderer.invoke(DOCUMENT_CHANNELS.list),
+    chunks: (documentId: string): Promise<DocResult<DocumentChunk[]>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.chunks, documentId),
+    remove: (documentId: string): Promise<DocResult<null>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.remove, documentId),
   },
   platform: process.platform,
 };

@@ -8,12 +8,14 @@ import { initDatabase } from "./backend/db/client";
 import { createDefaultProviderRegistry } from "./backend/providers/registry";
 import { AiController } from "./controllers/ai.controller";
 import { ConversationsController } from "./controllers/conversations.controller";
+import { DocumentsController } from "./controllers/documents.controller";
 import { FilesController } from "./controllers/files.controller";
 import { MemoryController } from "./controllers/memory.controller";
 import { initReminders, pruneReminders } from "./automation/reminders";
 import { registerAiIpc } from "./ipc/ai.ipc";
 import { registerAutomationIpc } from "./ipc/automation.ipc";
 import { registerConversationsIpc } from "./ipc/conversations.ipc";
+import { registerDocumentsIpc } from "./ipc/documents.ipc";
 import { registerFilesIpc } from "./ipc/files.ipc";
 import { registerMemoryIpc } from "./ipc/memory.ipc";
 
@@ -111,6 +113,7 @@ app.whenReady().then(() => {
   registerMemoryIpc(new MemoryController());
   registerAutomationIpc();
   registerFilesIpc(new FilesController());
+  registerDocumentsIpc(new DocumentsController());
   pruneReminders();
   initReminders();
   createMainWindow();

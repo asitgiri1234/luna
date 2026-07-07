@@ -3,6 +3,7 @@ import { type FileKind, type FileRecord, isImageKind } from "@shared/files";
 import { create } from "zustand";
 
 import { fileService } from "@/files/file.service";
+import { useDocumentsStore } from "@/store/documents/documents.store";
 
 /**
  * # Files store — React adapter for the file layer
@@ -138,6 +139,8 @@ export const useFilesStore = create<FilesUiState>()((set, get) => {
 
     remove: async (id) => {
       await fileService.remove(id);
+      // The document (+ chunks) cascades in the DB; drop its UI state too.
+      useDocumentsStore.getState().dropForFile(id);
       set((state) => ({ files: state.files.filter((file) => file.id !== id) }));
     },
 

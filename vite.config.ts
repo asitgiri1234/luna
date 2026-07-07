@@ -16,8 +16,11 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              // Native module — must be required at runtime, not bundled.
-              external: ["better-sqlite3"],
+              // Modules required at runtime, not bundled: better-sqlite3 is
+              // native; pdfjs-dist / mammoth are heavy document parsers that
+              // ship their own workers/assets and resolve cleanly from
+              // node_modules in the main process.
+              external: ["better-sqlite3", /^pdfjs-dist(\/|$)/, "mammoth"],
             },
           },
         },
