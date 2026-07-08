@@ -1,9 +1,27 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { createLogger } from "../../../shared/logger";
 import { getDb } from "../../backend/db/client";
 import { chunkEmbeddings, documentChunks } from "../../backend/db/schema";
 import type { EmbeddingRecord, PendingChunk } from "./types";
+
+/** A stored embedding joined with its chunk's document id (for the vector store). */
+export interface StoredEmbeddingRow {
+  chunkId: string;
+  documentId: string;
+  model: string;
+  dimensions: number;
+  embedding: number[];
+}
+
+function parseVector(raw: string): number[] {
+  try {
+    const value = JSON.parse(raw);
+    return Array.isArray(value) ? (value as number[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * # Embedding repository (main process)
@@ -56,6 +74,109 @@ export class EmbeddingRepository {
       .where(and(eq(chunkEmbeddings.chunkId, chunkId), eq(chunkEmbeddings.model, model)))
       .get();
     return Boolean(row);
+  }
+
+  /** One stored embedding for a (chunk, model), or undefined. */
+  get(chunkId: string, model: string): EmbeddingRecord | undefined {
+    const row = getDb()
+      .select()
+      .from(chunkEmbeddings)
+      .where(and(eq(chunkEmbeddings.chunkId, chunkId), eq(chunkEmbeddings.model, model)))
+      .get();
+    if (!row) return undefined;
+    return {
+      id: row.id,
+      chunkId: row.chunkId,
+      model: row.model,
+      dimensions: row.dimensions,
+      embedding: parseVector(row.embedding),
+      createdAt: row.createdAt,
+    };
+  }
+
+  /** The document a chunk belongs to (for cache bookkeeping). */
+  documentIdForChunk(chunkId: string): string | undefined {
+    const row = getDb()
+      .select({ documentId: documentChunks.documentId })
+      .from(documentChunks)
+      .where(eq(documentChunks.id, chunkId))
+      .get();
+    return row?.documentId;
+  }
+
+  /**
+   * All stored vectors for a model, joined with their document id, for
+   * building the in-memory search index. Optionally scoped to a document.
+   */
+  listVectors(model: string, documentId?: string): StoredEmbeddingRow[] {
+    const rows = getDb()
+      .select({
+        chunkId: chunkEmbeddings.chunkId,
+        documentId: documentChunks.documentId,
+        model: chunkEmbeddings.model,
+        dimensions: chunkEmbeddings.dimensions,
+        embedding: chunkEmbeddings.embedding,
+      })
+      .from(chunkEmbeddings)
+      .innerJoin(documentChunks, eq(documentChunks.id, chunkEmbeddings.chunkId))
+      .where(
+        and(
+          eq(chunkEmbeddings.model, model),
+          documentId ? eq(documentChunks.documentId, documentId) : undefined,
+        ),
+      )
+      .all();
+    return rows.map((row) => ({
+      chunkId: row.chunkId,
+      documentId: row.documentId,
+      model: row.model,
+      dimensions: row.dimensions,
+      embedding: parseVector(row.embedding),
+    }));
+  }
+
+  /** Insert-or-replace a single embedding (keyed by the unique (chunk, model)). */
+  upsert(record: EmbeddingRecord): void {
+    getDb()
+      .insert(chunkEmbeddings)
+      .values({
+        id: record.id,
+        chunkId: record.chunkId,
+        model: record.model,
+        dimensions: record.dimensions,
+        embedding: JSON.stringify(record.embedding),
+        createdAt: record.createdAt,
+      })
+      .onConflictDoUpdate({
+        target: [chunkEmbeddings.chunkId, chunkEmbeddings.model],
+        set: {
+          dimensions: record.dimensions,
+          embedding: JSON.stringify(record.embedding),
+          createdAt: record.createdAt,
+        },
+      })
+      .run();
+  }
+
+  /** Removes one embedding. */
+  deleteByChunk(chunkId: string, model: string): void {
+    getDb()
+      .delete(chunkEmbeddings)
+      .where(and(eq(chunkEmbeddings.chunkId, chunkId), eq(chunkEmbeddings.model, model)))
+      .run();
+  }
+
+  /** Removes every embedding whose chunk belongs to `documentId`. Returns the count. */
+  deleteByDocument(documentId: string, model: string): number {
+    const chunkIds = getDb()
+      .select({ id: documentChunks.id })
+      .from(documentChunks)
+      .where(eq(documentChunks.documentId, documentId));
+    const result = getDb()
+      .delete(chunkEmbeddings)
+      .where(and(eq(chunkEmbeddings.model, model), inArray(chunkEmbeddings.chunkId, chunkIds)))
+      .run();
+    return result.changes;
   }
 
   /** Inserts a batch of embeddings atomically. Ignores duplicates (unique index). */
