@@ -4,7 +4,11 @@ import { FileText, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { documentMetrics, languageName } from "@/lib/document-presentation";
 import { useDocumentsStore } from "@/store/documents/documents.store";
+import { useFilesStore } from "@/store/files/files.store";
 import type { DocumentChunk } from "@shared/documents";
+import { isImageKind } from "@shared/files";
+
+import { VisionPanel } from "./VisionPanel";
 
 /** Stable empty reference so selectors never return a fresh array (avoids render loops). */
 const NO_CHUNKS: DocumentChunk[] = [];
@@ -25,9 +29,13 @@ export function DocumentDetail() {
     useDocumentsStore((state) => (docId ? state.chunksByDoc[docId] : undefined)) ?? NO_CHUNKS;
   const close = useDocumentsStore((state) => state.closeDetail);
   const process = useDocumentsStore((state) => state.process);
+  const fileKind = useFilesStore((state) =>
+    selectedFileId ? state.files.find((file) => file.id === selectedFileId)?.type : undefined,
+  );
 
   const open = Boolean(selectedFileId);
   const record = entry?.record ?? null;
+  const isImage = fileKind ? isImageKind(fileKind) : false;
 
   return (
     <AnimatePresence>
@@ -127,9 +135,11 @@ export function DocumentDetail() {
                     </div>
                   </Section>
                 </>
-              ) : (
+              ) : !isImage ? (
                 <p className="text-sm text-muted-foreground">No document data.</p>
-              )}
+              ) : null}
+
+              {isImage && selectedFileId && <VisionPanel fileId={selectedFileId} />}
             </div>
 
             {record && selectedFileId && (

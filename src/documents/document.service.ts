@@ -7,6 +7,8 @@ import {
   type ProcessDocumentInput,
   type RetrievedChunk,
   type RetrieveQuery,
+  type VisionAnalysis,
+  type VisionProgress,
 } from "@shared/documents";
 import type { LunaDocumentsApi } from "@/types/electron";
 
@@ -74,5 +76,25 @@ export const documentService = {
   /** Subscribes to OCR progress events. Returns an unsubscribe function. */
   onOcrProgress(callback: (progress: OcrProgress) => void): () => void {
     return window.luna?.documents.onOcrProgress(callback) ?? (() => {});
+  },
+
+  /** Analyze one image with the vision model (background). */
+  async visionAnalyze(imageId: string): Promise<VisionAnalysis> {
+    return unwrap(await bridge().visionAnalyze(imageId));
+  },
+
+  /** Analyze several images with the vision model. */
+  async visionAnalyzeBatch(imageIds: string[]): Promise<VisionAnalysis[]> {
+    return unwrap(await bridge().visionAnalyzeBatch(imageIds));
+  },
+
+  /** Fetch a cached image analysis (or null). */
+  async visionGet(imageId: string): Promise<VisionAnalysis | null> {
+    return unwrap(await bridge().visionGet(imageId));
+  },
+
+  /** Subscribes to vision progress events. Returns an unsubscribe function. */
+  onVisionProgress(callback: (progress: VisionProgress) => void): () => void {
+    return window.luna?.documents.onVisionProgress(callback) ?? (() => {});
   },
 };

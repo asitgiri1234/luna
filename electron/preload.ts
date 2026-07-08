@@ -55,6 +55,8 @@ import {
   type ProcessDocumentInput,
   type RetrievedChunk,
   type RetrieveQuery,
+  type VisionAnalysis,
+  type VisionProgress,
 } from "../shared/documents";
 
 /**
@@ -212,6 +214,18 @@ const lunaApi = {
       const listener = (_e: Electron.IpcRendererEvent, value: OcrProgress): void => callback(value);
       ipcRenderer.on(DOCUMENT_CHANNELS.ocrProgress, listener);
       return () => ipcRenderer.off(DOCUMENT_CHANNELS.ocrProgress, listener);
+    },
+    visionAnalyze: (imageId: string): Promise<DocResult<VisionAnalysis>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.visionAnalyze, imageId),
+    visionAnalyzeBatch: (imageIds: string[]): Promise<DocResult<VisionAnalysis[]>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.visionAnalyzeBatch, imageIds),
+    visionGet: (imageId: string): Promise<DocResult<VisionAnalysis | null>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.visionGet, imageId),
+    onVisionProgress: (callback: (progress: VisionProgress) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, value: VisionProgress): void =>
+        callback(value);
+      ipcRenderer.on(DOCUMENT_CHANNELS.visionProgress, listener);
+      return () => ipcRenderer.off(DOCUMENT_CHANNELS.visionProgress, listener);
     },
   },
   platform: process.platform,

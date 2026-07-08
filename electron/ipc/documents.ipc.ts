@@ -28,4 +28,11 @@ export function registerDocumentsIpc(controller: DocumentsController): void {
   handle(DOCUMENT_CHANNELS.ocrExtractBatch, (event, imageIds: string[]) =>
     controller.ocrExtractBatch(event.sender, imageIds),
   );
+  handle(DOCUMENT_CHANNELS.visionAnalyze, (event, imageId: string) =>
+    controller.visionAnalyze(event.sender, imageId),
+  );
+  handle(DOCUMENT_CHANNELS.visionAnalyzeBatch, (event, imageIds: string[]) =>
+    controller.visionAnalyzeBatch(event.sender, imageIds),
+  );
+  handle(DOCUMENT_CHANNELS.visionGet, (_e, imageId: string) => controller.visionGet(imageId));
 }

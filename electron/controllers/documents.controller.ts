@@ -7,6 +7,7 @@ import {
   type ProcessDocumentInput,
   type RetrievedChunk,
   type RetrieveQuery,
+  type VisionAnalysis,
   isDocumentKind,
 } from "../../shared/documents";
 import { PersistenceError } from "../../shared/conversations";
@@ -16,6 +17,7 @@ import { DocumentRepository } from "../documents/document.repository";
 import { OCRService } from "../documents/ocr/ocr.service";
 import { buildDocument } from "../documents/pipeline";
 import { RetrieverService } from "../documents/retrieval/retriever.service";
+import { VisionService } from "../documents/vision/vision.service";
 import { FileRepository } from "../files/file.repository";
 import { resolveStorage } from "../files/workspace";
 import type { WebContents } from "electron";
@@ -78,6 +80,7 @@ export class DocumentsController {
   private readonly files = new FileRepository();
   private readonly retriever = new RetrieverService();
   private readonly ocr = new OCRService();
+  private readonly vision = new VisionService();
 
   /** Parse → normalize → chunk → store for one uploaded file. */
   process(input: ProcessDocumentInput): Promise<DocResult<DocumentRecord>> {
@@ -159,5 +162,28 @@ export class DocumentsController {
         if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.ocrProgress, progress);
       }),
     );
+  }
+
+  /** Analyze one image with the vision model, streaming progress. */
+  visionAnalyze(sender: WebContents, imageId: string): Promise<DocResult<VisionAnalysis>> {
+    return run("vision-analyze", () =>
+      this.vision.analyzeImage(imageId, (progress) => {
+        if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.visionProgress, progress);
+      }),
+    );
+  }
+
+  /** Analyze several images (background), streaming progress. */
+  visionAnalyzeBatch(sender: WebContents, imageIds: string[]): Promise<DocResult<VisionAnalysis[]>> {
+    return run("vision-analyze-batch", () =>
+      this.vision.analyzeBatch(imageIds, (progress) => {
+        if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.visionProgress, progress);
+      }),
+    );
+  }
+
+  /** The cached image analysis (or null). */
+  visionGet(imageId: string): Promise<DocResult<VisionAnalysis | null>> {
+    return run("vision-get", () => this.vision.getAnalysis(imageId));
   }
 }

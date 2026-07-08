@@ -185,6 +185,36 @@ export interface OcrProgress {
 }
 
 // ---------------------------------------------------------------------------
+// Vision (image understanding via a local vision model). Results are stored
+// in the `documents.metadata` JSON of the image's document — no new schema.
+// ---------------------------------------------------------------------------
+
+export type VisionStatus = "queued" | "analyzing" | "done" | "failed";
+
+/** Structured understanding of an image produced by a vision model. */
+export interface VisionAnalysis {
+  /** One short caption. */
+  caption: string;
+  /** A few sentences describing the image. */
+  description: string;
+  /** Salient objects the model reported (labels; empty if unsupported). */
+  objects: string[];
+  /** One-sentence summary of the overall scene. */
+  sceneSummary: string;
+  /** The vision model that produced this. */
+  model: string;
+  createdAt: number;
+}
+
+/** Progress event streamed while an image is being analyzed. */
+export interface VisionProgress {
+  imageId: string;
+  status: VisionStatus;
+  /** 0…1 completion. */
+  progress: number;
+}
+
+// ---------------------------------------------------------------------------
 // Errors / results
 // ---------------------------------------------------------------------------
 
@@ -235,4 +265,12 @@ export const DOCUMENT_CHANNELS = {
   ocrExtractBatch: "documents:ocr-extract-batch",
   /** Streamed OCR progress (main → renderer). */
   ocrProgress: "documents:ocr-progress",
+  /** Analyze one image with the vision model. */
+  visionAnalyze: "documents:vision-analyze",
+  /** Analyze several images. */
+  visionAnalyzeBatch: "documents:vision-analyze-batch",
+  /** Fetch a cached image analysis (or null). */
+  visionGet: "documents:vision-get",
+  /** Streamed vision progress (main → renderer). */
+  visionProgress: "documents:vision-progress",
 } as const;

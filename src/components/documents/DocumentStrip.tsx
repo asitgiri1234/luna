@@ -35,15 +35,29 @@ export function DocumentStrip({ fileId, kind }: { fileId: string; kind: FileKind
   }
 
   if (phase === "failed") {
+    // Images: open the detail panel (where re-run + visual analysis live).
+    if (image) {
+      return (
+        <button
+          type="button"
+          onClick={() => void openDetail(fileId)}
+          className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          title={entry?.error ?? "No text found"}
+        >
+          <ScanText className="h-3 w-3" />
+          No text · View &amp; analyze
+        </button>
+      );
+    }
     return (
       <button
         type="button"
         onClick={retry}
         className="mt-1 flex items-center gap-1.5 text-xs text-amber-400/90 transition-colors hover:text-amber-300"
-        title={entry?.error ?? (image ? "OCR failed" : "Parsing failed")}
+        title={entry?.error ?? "Parsing failed"}
       >
         <AlertTriangle className="h-3 w-3" />
-        {image ? "No text found · Retry" : "Couldn't read · Retry"}
+        Couldn&apos;t read · Retry
       </button>
     );
   }

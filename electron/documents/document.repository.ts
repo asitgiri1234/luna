@@ -140,6 +140,25 @@ export class DocumentRepository {
     }));
   }
 
+  /** The document id + raw metadata JSON for a source file (for vision results). */
+  metadataByFileId(sourceFileId: string): { documentId: string; metadata: string | null } | undefined {
+    const row = getDb()
+      .select({ documentId: documents.id, metadata: documents.metadata })
+      .from(documents)
+      .where(eq(documents.sourceFileId, sourceFileId))
+      .get();
+    return row ? { documentId: row.documentId, metadata: row.metadata ?? null } : undefined;
+  }
+
+  /** Replaces the raw metadata JSON of a document (leaves content + chunks intact). */
+  setMetadata(documentId: string, metadata: string | null): void {
+    getDb()
+      .update(documents)
+      .set({ metadata, updatedAt: Date.now() })
+      .where(eq(documents.id, documentId))
+      .run();
+  }
+
   /** Chunks for an arbitrary set of ids (unordered), for retrieval hydration. */
   chunksByIds(ids: string[]): DocumentChunk[] {
     if (ids.length === 0) return [];

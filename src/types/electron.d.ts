@@ -43,6 +43,8 @@ import type {
   ProcessDocumentInput,
   RetrievedChunk,
   RetrieveQuery,
+  VisionAnalysis,
+  VisionProgress,
 } from "@shared/documents";
 
 /**
@@ -135,6 +137,10 @@ export interface LunaDocumentsApi {
   ocrExtract: (imageId: string) => Promise<DocResult<DocumentRecord>>;
   ocrExtractBatch: (imageIds: string[]) => Promise<DocResult<DocumentRecord[]>>;
   onOcrProgress: (callback: (progress: OcrProgress) => void) => () => void;
+  visionAnalyze: (imageId: string) => Promise<DocResult<VisionAnalysis>>;
+  visionAnalyzeBatch: (imageIds: string[]) => Promise<DocResult<VisionAnalysis[]>>;
+  visionGet: (imageId: string) => Promise<DocResult<VisionAnalysis | null>>;
+  onVisionProgress: (callback: (progress: VisionProgress) => void) => () => void;
 }
 
 export interface LunaApi {

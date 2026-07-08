@@ -1,4 +1,9 @@
-import { type DocumentChunk, type DocumentRecord, isDocumentKind } from "@shared/documents";
+import {
+  type DocumentChunk,
+  type DocumentRecord,
+  type VisionAnalysis,
+  isDocumentKind,
+} from "@shared/documents";
 import { type FileRecord, isImageKind } from "@shared/files";
 
 import { create } from "zustand";
@@ -28,8 +33,19 @@ export interface DocEntry {
   progress?: number;
 }
 
+export type VisionPhase = "idle" | "analyzing" | "ready" | "failed";
+
+export interface VisionEntry {
+  phase: VisionPhase;
+  analysis: VisionAnalysis | null;
+  progress?: number;
+  error?: string;
+}
+
 interface DocumentsState {
   byFileId: Record<string, DocEntry>;
+  /** Vision analysis state, keyed by image file id. */
+  visionByFileId: Record<string, VisionEntry>;
   /** Chunks fetched on demand for the detail view, keyed by document id. */
   chunksByDoc: Record<string, DocumentChunk[]>;
   /** Source file id whose detail panel is open, if any. */
@@ -41,6 +57,10 @@ interface DocumentsState {
   process: (sourceFileId: string, force?: boolean) => Promise<void>;
   /** Runs OCR for an image file. */
   ocr: (imageId: string) => Promise<void>;
+  /** Runs vision analysis for an image file (background). */
+  analyzeVision: (imageId: string) => Promise<void>;
+  /** Loads a cached vision analysis for an image, if any. */
+  loadVision: (imageId: string) => Promise<void>;
   dropForFile: (sourceFileId: string) => void;
   openDetail: (sourceFileId: string) => Promise<void>;
   closeDetail: () => void;
@@ -62,8 +82,24 @@ export const useDocumentsStore = create<DocumentsState>()((set, get) => {
     });
   });
 
+  // Live vision progress updates the matching vision entry.
+  documentService.onVisionProgress(({ imageId, status, progress }) => {
+    set((state) => {
+      const entry = state.visionByFileId[imageId];
+      const phase: VisionPhase =
+        status === "failed" ? "failed" : status === "done" ? (entry?.phase ?? "analyzing") : "analyzing";
+      return {
+        visionByFileId: {
+          ...state.visionByFileId,
+          [imageId]: { ...entry, phase, analysis: entry?.analysis ?? null, progress },
+        },
+      };
+    });
+  });
+
   return {
     byFileId: {},
+    visionByFileId: {},
     chunksByDoc: {},
     selectedFileId: null,
 
@@ -171,18 +207,69 @@ export const useDocumentsStore = create<DocumentsState>()((set, get) => {
       }
     },
 
+    analyzeVision: async (imageId) => {
+      set((state) => ({
+        visionByFileId: {
+          ...state.visionByFileId,
+          [imageId]: {
+            phase: "analyzing",
+            progress: 0,
+            analysis: state.visionByFileId[imageId]?.analysis ?? null,
+          },
+        },
+      }));
+      try {
+        const analysis = await documentService.visionAnalyze(imageId);
+        set((state) => ({
+          visionByFileId: {
+            ...state.visionByFileId,
+            [imageId]: { phase: "ready", analysis, progress: 1 },
+          },
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Vision analysis failed.";
+        set((state) => ({
+          visionByFileId: {
+            ...state.visionByFileId,
+            [imageId]: { phase: "failed", analysis: null, error: message },
+          },
+        }));
+      }
+    },
+
+    loadVision: async (imageId) => {
+      if (get().visionByFileId[imageId]) return;
+      try {
+        const analysis = await documentService.visionGet(imageId);
+        if (analysis) {
+          set((state) => ({
+            visionByFileId: {
+              ...state.visionByFileId,
+              [imageId]: { phase: "ready", analysis },
+            },
+          }));
+        }
+      } catch {
+        // Absence of a cached analysis is not an error.
+      }
+    },
+
     dropForFile: (sourceFileId) =>
       set((state) => {
         const byFileId = { ...state.byFileId };
+        const visionByFileId = { ...state.visionByFileId };
         delete byFileId[sourceFileId];
+        delete visionByFileId[sourceFileId];
         return {
           byFileId,
+          visionByFileId,
           selectedFileId: state.selectedFileId === sourceFileId ? null : state.selectedFileId,
         };
       }),
 
     openDetail: async (sourceFileId) => {
       set({ selectedFileId: sourceFileId });
+      void get().loadVision(sourceFileId); // surface any cached image analysis
       const record = get().byFileId[sourceFileId]?.record;
       if (!record || record.status !== "ready" || get().chunksByDoc[record.id]) return;
       try {
