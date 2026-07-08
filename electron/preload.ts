@@ -51,6 +51,7 @@ import {
   type DocResult,
   type DocumentChunk,
   type DocumentRecord,
+  type OcrProgress,
   type ProcessDocumentInput,
   type RetrievedChunk,
   type RetrieveQuery,
@@ -203,6 +204,15 @@ const lunaApi = {
       ipcRenderer.invoke(DOCUMENT_CHANNELS.remove, documentId),
     retrieve: (input: RetrieveQuery): Promise<DocResult<RetrievedChunk[]>> =>
       ipcRenderer.invoke(DOCUMENT_CHANNELS.retrieve, input),
+    ocrExtract: (imageId: string): Promise<DocResult<DocumentRecord>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.ocrExtract, imageId),
+    ocrExtractBatch: (imageIds: string[]): Promise<DocResult<DocumentRecord[]>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.ocrExtractBatch, imageIds),
+    onOcrProgress: (callback: (progress: OcrProgress) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, value: OcrProgress): void => callback(value);
+      ipcRenderer.on(DOCUMENT_CHANNELS.ocrProgress, listener);
+      return () => ipcRenderer.off(DOCUMENT_CHANNELS.ocrProgress, listener);
+    },
   },
   platform: process.platform,
 };

@@ -3,6 +3,7 @@ import {
   type DocumentChunk,
   DocumentError,
   type DocumentRecord,
+  type OcrProgress,
   type ProcessDocumentInput,
   type RetrievedChunk,
   type RetrieveQuery,
@@ -58,5 +59,20 @@ export const documentService = {
   /** Query → Top-K relevant chunks (for document chat). */
   async retrieve(input: RetrieveQuery): Promise<RetrievedChunk[]> {
     return unwrap(await bridge().retrieve(input));
+  },
+
+  /** OCR one image into a document linked to it. */
+  async ocrExtract(imageId: string): Promise<DocumentRecord> {
+    return unwrap(await bridge().ocrExtract(imageId));
+  },
+
+  /** OCR several images in the background. */
+  async ocrExtractBatch(imageIds: string[]): Promise<DocumentRecord[]> {
+    return unwrap(await bridge().ocrExtractBatch(imageIds));
+  },
+
+  /** Subscribes to OCR progress events. Returns an unsubscribe function. */
+  onOcrProgress(callback: (progress: OcrProgress) => void): () => void {
+    return window.luna?.documents.onOcrProgress(callback) ?? (() => {});
   },
 };

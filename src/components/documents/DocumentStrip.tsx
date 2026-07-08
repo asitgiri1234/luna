@@ -4,27 +4,32 @@ import { formatReadingTime } from "@/lib/document-presentation";
 import { cn } from "@/lib/utils";
 import { useDocumentsStore } from "@/store/documents/documents.store";
 import { isDocumentKind } from "@shared/documents";
-import type { FileKind } from "@shared/files";
+import { type FileKind, isImageKind } from "@shared/files";
 
 /**
- * The Document Intelligence status row shown at the foot of a document
- * file's card: a spinner while parsing, headline metrics when ready, or a
- * retry affordance on failure. Images and unsupported kinds render nothing.
+ * The status row at the foot of a file's card: a spinner while a text
+ * document is parsed or an image is OCR'd (with progress), headline
+ * metrics when ready, or a retry affordance on failure. Only rendered for
+ * text documents and images.
  */
 export function DocumentStrip({ fileId, kind }: { fileId: string; kind: FileKind }) {
   const entry = useDocumentsStore((state) => state.byFileId[fileId]);
   const openDetail = useDocumentsStore((state) => state.openDetail);
   const process = useDocumentsStore((state) => state.process);
+  const ocr = useDocumentsStore((state) => state.ocr);
 
-  if (!isDocumentKind(kind)) return null;
+  const image = isImageKind(kind);
+  if (!isDocumentKind(kind) && !image) return null;
 
   const phase = entry?.phase ?? "idle";
+  const retry = (): void => void (image ? ocr(fileId) : process(fileId, true));
 
   if (phase === "processing" || phase === "idle") {
+    const pct = image && entry?.progress ? ` ${Math.round(entry.progress * 100)}%` : "";
     return (
       <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Analyzing…
+        {image ? `Reading text…${pct}` : "Analyzing…"}
       </div>
     );
   }
@@ -33,12 +38,12 @@ export function DocumentStrip({ fileId, kind }: { fileId: string; kind: FileKind
     return (
       <button
         type="button"
-        onClick={() => void process(fileId, true)}
+        onClick={retry}
         className="mt-1 flex items-center gap-1.5 text-xs text-amber-400/90 transition-colors hover:text-amber-300"
-        title={entry?.error ?? "Parsing failed"}
+        title={entry?.error ?? (image ? "OCR failed" : "Parsing failed")}
       >
         <AlertTriangle className="h-3 w-3" />
-        Couldn&apos;t read · Retry
+        {image ? "No text found · Retry" : "Couldn't read · Retry"}
       </button>
     );
   }
@@ -57,7 +62,9 @@ export function DocumentStrip({ fileId, kind }: { fileId: string; kind: FileKind
     >
       <span className="flex items-center gap-1">
         <ScanText className="h-3 w-3" />
-        {record.pageCount}p · {formatReadingTime(record.readingTimeMinutes)}
+        {image
+          ? `${record.wordCount} words`
+          : `${record.pageCount}p · ${formatReadingTime(record.readingTimeMinutes)}`}
       </span>
       <span className="ml-auto flex items-center gap-1 text-muted-foreground/80">
         <Layers className="h-3 w-3" />

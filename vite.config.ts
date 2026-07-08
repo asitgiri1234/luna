@@ -20,7 +20,7 @@ export default defineConfig({
               // native; pdfjs-dist / mammoth are heavy document parsers that
               // ship their own workers/assets and resolve cleanly from
               // node_modules in the main process.
-              external: ["better-sqlite3", /^pdfjs-dist(\/|$)/, "mammoth"],
+              external: ["better-sqlite3", /^pdfjs-dist(\/|$)/, "mammoth", /^tesseract\.js(\/|$)/],
             },
           },
         },

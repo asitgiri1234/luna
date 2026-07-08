@@ -1,5 +1,5 @@
 import { type DocumentChunk, type DocumentRecord, isDocumentKind } from "@shared/documents";
-import type { FileRecord } from "@shared/files";
+import { type FileRecord, isImageKind } from "@shared/files";
 
 import { create } from "zustand";
 
@@ -11,16 +11,21 @@ import { documentService } from "@/documents/document.service";
  * Tracks, per source file, the structured document Luna has built from
  * it (or its processing / failed state), plus the currently opened
  * detail view. All work goes through `documentService`; no parsing or
- * SQL lives here. Processing is triggered lazily for document-kind files
- * and is idempotent — a file is only processed once unless re-run.
+ * SQL lives here. Processing is triggered lazily and is idempotent:
+ * text documents are parsed, image files are OCR'd, each only once.
  */
 
 export type DocPhase = "idle" | "processing" | "ready" | "failed";
+export type DocMode = "process" | "ocr";
 
 export interface DocEntry {
   phase: DocPhase;
   record: DocumentRecord | null;
   error?: string;
+  /** How this file is turned into a document. */
+  mode?: DocMode;
+  /** 0…1 progress while OCR is running. */
+  progress?: number;
 }
 
 interface DocumentsState {
@@ -31,102 +36,163 @@ interface DocumentsState {
   selectedFileId: string | null;
 
   refresh: () => Promise<void>;
-  /** Kicks off processing for any not-yet-processed document files. */
+  /** Kicks off processing / OCR for any not-yet-handled files. */
   ensureProcessed: (files: FileRecord[]) => void;
   process: (sourceFileId: string, force?: boolean) => Promise<void>;
+  /** Runs OCR for an image file. */
+  ocr: (imageId: string) => Promise<void>;
   dropForFile: (sourceFileId: string) => void;
   openDetail: (sourceFileId: string) => Promise<void>;
   closeDetail: () => void;
 }
 
-export const useDocumentsStore = create<DocumentsState>()((set, get) => ({
-  byFileId: {},
-  chunksByDoc: {},
-  selectedFileId: null,
+export const useDocumentsStore = create<DocumentsState>()((set, get) => {
+  // Live OCR progress from the main process updates the matching entry.
+  documentService.onOcrProgress(({ imageId, status, progress }) => {
+    set((state) => {
+      const entry = state.byFileId[imageId];
+      const phase: DocPhase =
+        status === "failed" ? "failed" : status === "done" ? (entry?.phase ?? "processing") : "processing";
+      return {
+        byFileId: {
+          ...state.byFileId,
+          [imageId]: { ...entry, phase, mode: "ocr", record: entry?.record ?? null, progress },
+        },
+      };
+    });
+  });
 
-  refresh: async () => {
-    try {
-      const records = await documentService.list();
-      const byFileId: Record<string, DocEntry> = {};
-      for (const record of records) {
-        byFileId[record.sourceFileId] = {
-          phase: record.status === "ready" ? "ready" : "failed",
-          record,
-          error: record.error ?? undefined,
-        };
-      }
-      // Preserve in-flight "processing" entries not yet in the DB list.
-      set((state) => {
-        for (const [fileId, entry] of Object.entries(state.byFileId)) {
-          if (entry.phase === "processing" && !byFileId[fileId]) byFileId[fileId] = entry;
+  return {
+    byFileId: {},
+    chunksByDoc: {},
+    selectedFileId: null,
+
+    refresh: async () => {
+      try {
+        const records = await documentService.list();
+        const byFileId: Record<string, DocEntry> = {};
+        for (const record of records) {
+          byFileId[record.sourceFileId] = {
+            phase: record.status === "ready" ? "ready" : "failed",
+            record,
+            error: record.error ?? undefined,
+          };
         }
-        return { byFileId };
-      });
-    } catch {
-      // Leave existing state; the Files page still works without documents.
-    }
-  },
+        // Preserve in-flight "processing" entries not yet in the DB list.
+        set((state) => {
+          for (const [fileId, entry] of Object.entries(state.byFileId)) {
+            if (entry.phase === "processing" && !byFileId[fileId]) byFileId[fileId] = entry;
+          }
+          return { byFileId };
+        });
+      } catch {
+        // Leave existing state; the Files page still works without documents.
+      }
+    },
 
-  ensureProcessed: (files) => {
-    const { byFileId } = get();
-    for (const file of files) {
-      if (!isDocumentKind(file.type)) continue;
-      const entry = byFileId[file.id];
-      if (!entry || entry.phase === "idle") void get().process(file.id);
-    }
-  },
+    ensureProcessed: (files) => {
+      const { byFileId } = get();
+      for (const file of files) {
+        const entry = byFileId[file.id];
+        if (entry && entry.phase !== "idle") continue;
+        if (isDocumentKind(file.type)) void get().process(file.id);
+        else if (isImageKind(file.type)) void get().ocr(file.id);
+      }
+    },
 
-  process: async (sourceFileId, force = false) => {
-    set((state) => ({
-      byFileId: {
-        ...state.byFileId,
-        [sourceFileId]: { phase: "processing", record: state.byFileId[sourceFileId]?.record ?? null },
-      },
-    }));
-    try {
-      const record = await documentService.process({ sourceFileId, force });
+    process: async (sourceFileId, force = false) => {
       set((state) => ({
         byFileId: {
           ...state.byFileId,
           [sourceFileId]: {
-            phase: record.status === "ready" ? "ready" : "failed",
-            record,
-            error: record.error ?? undefined,
+            phase: "processing",
+            mode: "process",
+            record: state.byFileId[sourceFileId]?.record ?? null,
           },
         },
       }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Processing failed.";
+      try {
+        const record = await documentService.process({ sourceFileId, force });
+        set((state) => ({
+          byFileId: {
+            ...state.byFileId,
+            [sourceFileId]: {
+              phase: record.status === "ready" ? "ready" : "failed",
+              record,
+              error: record.error ?? undefined,
+            },
+          },
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Processing failed.";
+        set((state) => ({
+          byFileId: {
+            ...state.byFileId,
+            [sourceFileId]: { phase: "failed", record: null, error: message },
+          },
+        }));
+      }
+    },
+
+    ocr: async (imageId) => {
       set((state) => ({
         byFileId: {
           ...state.byFileId,
-          [sourceFileId]: { phase: "failed", record: null, error: message },
+          [imageId]: {
+            phase: "processing",
+            mode: "ocr",
+            progress: 0,
+            record: state.byFileId[imageId]?.record ?? null,
+          },
         },
       }));
-    }
-  },
+      try {
+        const record = await documentService.ocrExtract(imageId);
+        set((state) => ({
+          byFileId: {
+            ...state.byFileId,
+            [imageId]: {
+              phase: record.status === "ready" ? "ready" : "failed",
+              mode: "ocr",
+              progress: 1,
+              record,
+              error: record.error ?? undefined,
+            },
+          },
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "OCR failed.";
+        set((state) => ({
+          byFileId: {
+            ...state.byFileId,
+            [imageId]: { phase: "failed", mode: "ocr", record: null, error: message },
+          },
+        }));
+      }
+    },
 
-  dropForFile: (sourceFileId) =>
-    set((state) => {
-      const byFileId = { ...state.byFileId };
-      delete byFileId[sourceFileId];
-      return {
-        byFileId,
-        selectedFileId: state.selectedFileId === sourceFileId ? null : state.selectedFileId,
-      };
-    }),
+    dropForFile: (sourceFileId) =>
+      set((state) => {
+        const byFileId = { ...state.byFileId };
+        delete byFileId[sourceFileId];
+        return {
+          byFileId,
+          selectedFileId: state.selectedFileId === sourceFileId ? null : state.selectedFileId,
+        };
+      }),
 
-  openDetail: async (sourceFileId) => {
-    set({ selectedFileId: sourceFileId });
-    const record = get().byFileId[sourceFileId]?.record;
-    if (!record || record.status !== "ready" || get().chunksByDoc[record.id]) return;
-    try {
-      const chunks = await documentService.chunks(record.id);
-      set((state) => ({ chunksByDoc: { ...state.chunksByDoc, [record.id]: chunks } }));
-    } catch {
-      // Detail view degrades to metadata-only if chunks can't be loaded.
-    }
-  },
+    openDetail: async (sourceFileId) => {
+      set({ selectedFileId: sourceFileId });
+      const record = get().byFileId[sourceFileId]?.record;
+      if (!record || record.status !== "ready" || get().chunksByDoc[record.id]) return;
+      try {
+        const chunks = await documentService.chunks(record.id);
+        set((state) => ({ chunksByDoc: { ...state.chunksByDoc, [record.id]: chunks } }));
+      } catch {
+        // Detail view degrades to metadata-only if chunks can't be loaded.
+      }
+    },
 
-  closeDetail: () => set({ selectedFileId: null }),
-}));
+    closeDetail: () => set({ selectedFileId: null }),
+  };
+});

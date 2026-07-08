@@ -39,6 +39,7 @@ import type {
   DocResult,
   DocumentChunk,
   DocumentRecord,
+  OcrProgress,
   ProcessDocumentInput,
   RetrievedChunk,
   RetrieveQuery,
@@ -131,6 +132,9 @@ export interface LunaDocumentsApi {
   chunks: (documentId: string) => Promise<DocResult<DocumentChunk[]>>;
   remove: (documentId: string) => Promise<DocResult<null>>;
   retrieve: (input: RetrieveQuery) => Promise<DocResult<RetrievedChunk[]>>;
+  ocrExtract: (imageId: string) => Promise<DocResult<DocumentRecord>>;
+  ocrExtractBatch: (imageIds: string[]) => Promise<DocResult<DocumentRecord[]>>;
+  onOcrProgress: (callback: (progress: OcrProgress) => void) => () => void;
 }
 
 export interface LunaApi {

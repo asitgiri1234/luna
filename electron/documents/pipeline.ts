@@ -4,6 +4,7 @@ import {
   type ChunkOptions,
   DEFAULT_CHUNK_OPTIONS,
   type DocumentChunk,
+  type DocumentKind,
   DocumentError,
   type DocumentRecord,
   MAX_DOCUMENT_CHARS,
@@ -17,6 +18,7 @@ import { prepareChunks } from "./indexing";
 import { extractMetadata } from "./metadata";
 import { normalizeDocument } from "./normalizers";
 import { parseDocument } from "./parsers";
+import type { ParsedDocument } from "./types";
 
 /**
  * # Document pipeline (main process)
@@ -47,11 +49,24 @@ export async function buildDocument(
   if (!isDocumentKind(file.type)) {
     throw new DocumentError("unsupported-kind", `"${file.type}" is not a text document.`);
   }
-
   // 1. Parse → raw per-page text + container metadata.
   const parsed = await parseDocument(file.type, absPath);
+  // 2–5. Normalize → metadata → chunk → index-prep.
+  return assembleDocument(file, parsed, file.type, chunkOptions);
+}
 
-  // 2. Normalize → clean text + structural blocks.
+/**
+ * The post-parse pipeline (normalize → metadata → chunk → index-prep),
+ * reused by any source of raw text — file parsers *and* OCR. `kind` is
+ * the document kind to record (OCR stores its extracted text as `txt`).
+ */
+export function assembleDocument(
+  file: FileRecord,
+  parsed: ParsedDocument,
+  kind: DocumentKind,
+  chunkOptions?: Partial<ChunkOptions>,
+): BuiltDocument {
+  // Normalize → clean text + structural blocks.
   const normalized = normalizeDocument(parsed);
   if (!normalized.content.trim()) {
     throw new DocumentError(
@@ -63,10 +78,10 @@ export async function buildDocument(
     throw new DocumentError("too-large", "This document's text is too large to process.");
   }
 
-  // 3. Metadata → title, author, counts, language, reading time.
+  // Metadata → title, author, counts, language, reading time.
   const metrics = extractMetadata(parsed, normalized, file);
 
-  // 4 + 5. Chunk → index-prep (assign id / documentId / order).
+  // Chunk → index-prep (assign id / documentId / order).
   const documentId = randomUUID();
   const options: ChunkOptions = { ...DEFAULT_CHUNK_OPTIONS, ...chunkOptions };
   const drafts = chunkDocument(normalized.blocks, options);
@@ -77,7 +92,7 @@ export async function buildDocument(
     id: documentId,
     sourceFileId: file.id,
     title: metrics.title,
-    kind: file.type,
+    kind,
     language: metrics.language,
     wordCount: metrics.wordCount,
     pageCount: metrics.pageCount,
@@ -95,7 +110,7 @@ export async function buildDocument(
 
   log.info("document built", {
     id: documentId,
-    kind: file.type,
+    kind,
     pages: metrics.pageCount,
     words: metrics.wordCount,
     chunks: chunks.length,

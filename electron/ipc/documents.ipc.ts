@@ -22,4 +22,10 @@ export function registerDocumentsIpc(controller: DocumentsController): void {
   handle(DOCUMENT_CHANNELS.chunks, (_e, documentId: string) => controller.chunks(documentId));
   handle(DOCUMENT_CHANNELS.remove, (_e, documentId: string) => controller.remove(documentId));
   handle(DOCUMENT_CHANNELS.retrieve, (_e, input: RetrieveQuery) => controller.retrieve(input));
+  handle(DOCUMENT_CHANNELS.ocrExtract, (event, imageId: string) =>
+    controller.ocrExtract(event.sender, imageId),
+  );
+  handle(DOCUMENT_CHANNELS.ocrExtractBatch, (event, imageIds: string[]) =>
+    controller.ocrExtractBatch(event.sender, imageIds),
+  );
 }

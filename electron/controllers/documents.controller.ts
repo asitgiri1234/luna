@@ -1,4 +1,5 @@
 import {
+  DOCUMENT_CHANNELS,
   type DocumentChunk,
   type DocResult,
   DocumentError,
@@ -12,10 +13,12 @@ import { PersistenceError } from "../../shared/conversations";
 import type { FileRecord } from "../../shared/files";
 import { createLogger } from "../../shared/logger";
 import { DocumentRepository } from "../documents/document.repository";
+import { OCRService } from "../documents/ocr/ocr.service";
 import { buildDocument } from "../documents/pipeline";
 import { RetrieverService } from "../documents/retrieval/retriever.service";
 import { FileRepository } from "../files/file.repository";
 import { resolveStorage } from "../files/workspace";
+import type { WebContents } from "electron";
 
 /**
  * # Documents controller (main process)
@@ -74,6 +77,7 @@ export class DocumentsController {
   private readonly documents = new DocumentRepository();
   private readonly files = new FileRepository();
   private readonly retriever = new RetrieverService();
+  private readonly ocr = new OCRService();
 
   /** Parse → normalize → chunk → store for one uploaded file. */
   process(input: ProcessDocumentInput): Promise<DocResult<DocumentRecord>> {
@@ -135,6 +139,24 @@ export class DocumentsController {
         k: input.k,
         documentId: input.documentId,
         minScore: input.minScore,
+      }),
+    );
+  }
+
+  /** OCR one image into a document, streaming progress to the sender. */
+  ocrExtract(sender: WebContents, imageId: string): Promise<DocResult<DocumentRecord>> {
+    return run("ocr-extract", () =>
+      this.ocr.extractText(imageId, (progress) => {
+        if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.ocrProgress, progress);
+      }),
+    );
+  }
+
+  /** OCR several images (background), streaming progress to the sender. */
+  ocrExtractBatch(sender: WebContents, imageIds: string[]): Promise<DocResult<DocumentRecord[]>> {
+    return run("ocr-extract-batch", () =>
+      this.ocr.extractBatch(imageIds, (progress) => {
+        if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.ocrProgress, progress);
       }),
     );
   }

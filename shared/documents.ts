@@ -170,6 +170,21 @@ export interface RetrieveQuery {
 }
 
 // ---------------------------------------------------------------------------
+// OCR (image → text). Extracted text is stored as a normal `documents` row
+// linked to the source image file, so it reuses the whole document schema.
+// ---------------------------------------------------------------------------
+
+export type OcrStatus = "queued" | "loading" | "recognizing" | "done" | "failed";
+
+/** Progress event streamed while an image is being OCR'd. */
+export interface OcrProgress {
+  imageId: string;
+  status: OcrStatus;
+  /** 0…1 completion for the current phase. */
+  progress: number;
+}
+
+// ---------------------------------------------------------------------------
 // Errors / results
 // ---------------------------------------------------------------------------
 
@@ -214,4 +229,10 @@ export const DOCUMENT_CHANNELS = {
   remove: "documents:remove",
   /** Query → Top-K relevant chunks (for document chat). */
   retrieve: "documents:retrieve",
+  /** OCR one image into a document. */
+  ocrExtract: "documents:ocr-extract",
+  /** OCR several images. */
+  ocrExtractBatch: "documents:ocr-extract-batch",
+  /** Streamed OCR progress (main → renderer). */
+  ocrProgress: "documents:ocr-progress",
 } as const;
