@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 
 import {
   type ChunkMetadata,
@@ -131,6 +131,19 @@ export class DocumentRepository {
       .where(eq(documentChunks.documentId, documentId))
       .orderBy(asc(documentChunks.position))
       .all();
+    return rows.map((row) => ({
+      id: row.id,
+      documentId: row.documentId,
+      position: row.position,
+      text: row.text,
+      metadata: safeMetadata(row.metadata),
+    }));
+  }
+
+  /** Chunks for an arbitrary set of ids (unordered), for retrieval hydration. */
+  chunksByIds(ids: string[]): DocumentChunk[] {
+    if (ids.length === 0) return [];
+    const rows = getDb().select().from(documentChunks).where(inArray(documentChunks.id, ids)).all();
     return rows.map((row) => ({
       id: row.id,
       documentId: row.documentId,

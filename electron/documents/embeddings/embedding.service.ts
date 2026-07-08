@@ -56,6 +56,23 @@ export class EmbeddingService {
     this.repository = repository;
   }
 
+  /** The embedding model this service uses by default. */
+  get model(): string {
+    return this.config.model;
+  }
+
+  /**
+   * Embeds a single piece of text (e.g. a search query) with the same
+   * model used for chunks, so the vector is comparable. Returns the raw
+   * vector; does not touch the database.
+   */
+  async embedQuery(text: string, model: string = this.config.model, signal?: AbortSignal): Promise<number[]> {
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+    const [vector] = await this.embedBatch(model, [trimmed], signal);
+    return vector ?? [];
+  }
+
   /**
    * Embeds every chunk that doesn't yet have an embedding for the target
    * model (optionally scoped to one document), in batches, reporting
