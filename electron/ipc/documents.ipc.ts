@@ -1,6 +1,10 @@
 import { ipcMain } from "electron";
 
-import { DOCUMENT_CHANNELS, type ProcessDocumentInput } from "../../shared/documents";
+import {
+  DOCUMENT_CHANNELS,
+  type ProcessDocumentInput,
+  type RetrieveQuery,
+} from "../../shared/documents";
 import type { DocumentsController } from "../controllers/documents.controller";
 
 /**
@@ -17,4 +21,5 @@ export function registerDocumentsIpc(controller: DocumentsController): void {
   handle(DOCUMENT_CHANNELS.list, () => controller.list());
   handle(DOCUMENT_CHANNELS.chunks, (_e, documentId: string) => controller.chunks(documentId));
   handle(DOCUMENT_CHANNELS.remove, (_e, documentId: string) => controller.remove(documentId));
+  handle(DOCUMENT_CHANNELS.retrieve, (_e, input: RetrieveQuery) => controller.retrieve(input));
 }

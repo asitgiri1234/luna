@@ -1,5 +1,7 @@
 import type { AiChatMessage, AiError, AiErrorCode, GenerationOptions } from "@shared/ai";
 
+import type { Citation, DocumentUsed } from "@/ai/documents/citation.types";
+
 /**
  * # AI core types (renderer)
  *
@@ -43,6 +45,14 @@ export interface GenerationHandle {
 // Conversation
 // ---------------------------------------------------------------------------
 
+/** Document-chat grounding attached to an assistant message. */
+export interface MessageDocumentContext {
+  citations: Citation[];
+  documentsUsed: DocumentUsed[];
+  /** True when the answer was grounded but no relevant documents were found. */
+  noResults: boolean;
+}
+
 /** A message as the application (and UI) sees it. */
 export interface ConversationMessage {
   id: string;
@@ -51,6 +61,8 @@ export interface ConversationMessage {
   createdAt: number;
   /** Set when generation was stopped before the response finished. */
   interrupted?: boolean;
+  /** Present on assistant replies answered with document context. */
+  documentChat?: MessageDocumentContext;
 }
 
 export type ConversationStatus = "idle" | "waiting" | "streaming" | "stopping";

@@ -126,6 +126,50 @@ export interface ProcessDocumentInput {
 }
 
 // ---------------------------------------------------------------------------
+// Retrieval (query → relevant chunks). Produced by the main-process
+// RetrieverService and shipped to the renderer's document-chat layer.
+// ---------------------------------------------------------------------------
+
+export interface RetrievedChunkMeta {
+  position: number;
+  page?: number;
+  headingPath?: string[];
+  wordCount: number;
+  charCount: number;
+}
+
+export interface RetrievedDocumentMeta {
+  id: string;
+  sourceFileId: string;
+  title: string;
+  kind: DocumentKind;
+  language: string;
+  author: string | null;
+}
+
+/** One retrieved chunk with its similarity score and full context. */
+export interface RetrievedChunk {
+  chunkId: string;
+  documentId: string;
+  /** Cosine similarity in [-1, 1]; higher is more relevant. */
+  score: number;
+  text: string;
+  chunk: RetrievedChunkMeta;
+  document: RetrievedDocumentMeta;
+}
+
+/** A retrieval request over IPC. */
+export interface RetrieveQuery {
+  query: string;
+  /** Top-K to return. */
+  k?: number;
+  /** Restrict to a single document. */
+  documentId?: string;
+  /** Minimum similarity to keep a result. */
+  minScore?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Errors / results
 // ---------------------------------------------------------------------------
 
@@ -168,4 +212,6 @@ export const DOCUMENT_CHANNELS = {
   chunks: "documents:chunks",
   /** Delete a document and its chunks. */
   remove: "documents:remove",
+  /** Query → Top-K relevant chunks (for document chat). */
+  retrieve: "documents:retrieve",
 } as const;

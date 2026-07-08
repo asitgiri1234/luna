@@ -40,6 +40,8 @@ import type {
   DocumentChunk,
   DocumentRecord,
   ProcessDocumentInput,
+  RetrievedChunk,
+  RetrieveQuery,
 } from "@shared/documents";
 
 /**
@@ -128,6 +130,7 @@ export interface LunaDocumentsApi {
   list: () => Promise<DocResult<DocumentRecord[]>>;
   chunks: (documentId: string) => Promise<DocResult<DocumentChunk[]>>;
   remove: (documentId: string) => Promise<DocResult<null>>;
+  retrieve: (input: RetrieveQuery) => Promise<DocResult<RetrievedChunk[]>>;
 }
 
 export interface LunaApi {

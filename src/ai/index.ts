@@ -9,12 +9,15 @@ import { IpcMemoryRepository } from "./memory/ipc-memory-repository";
 import { MemoryExtractor } from "./memory/memory-extractor";
 import type { MemoryRepository } from "./memory/memory-repository";
 import { MemoryService } from "./memory/memory-service";
+import { DocumentChatService } from "./documents/document-chat.service";
 import { PromptBuilder } from "./prompt/prompt-builder";
 import type { AIProvider } from "./provider/ai-provider";
 import { createProvider } from "./provider/provider-factory";
 import { type ToolSystem, createToolSystem } from "./tools";
 import type { ExecutionRequest } from "./tools/types";
 import { type AutomationSystem, createAutomationSystem } from "@/automation";
+import { documentService } from "@/documents/document.service";
+import { fileService } from "@/files/file.service";
 
 /**
  * # AI core composition root
@@ -43,6 +46,7 @@ export interface AiCore {
   memoryRepository: MemoryRepository;
   tools: ToolSystem;
   automation: AutomationSystem;
+  documentChat: DocumentChatService;
 }
 
 export interface AiCoreOverrides {
@@ -75,6 +79,12 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
   const tools = createToolSystem({ provider, model: config.model, platform });
   const automation = createAutomationSystem({ planning: tools.service, platform });
 
+  const documentChat = new DocumentChatService(
+    (input) => documentService.retrieve(input),
+    (sourceFileId) => fileService.open(sourceFileId),
+    createLogger("ai:document-chat"),
+  );
+
   const conversation = new ConversationManager({
     provider,
     config,
@@ -83,6 +93,7 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     repository: conversationRepository,
     memory,
     automation: automation.service,
+    documentChat,
     logger: createLogger("ai:conversation"),
   });
 
@@ -95,6 +106,7 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     memoryRepository,
     tools,
     automation,
+    documentChat,
   };
 }
 

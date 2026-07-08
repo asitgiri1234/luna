@@ -1,8 +1,9 @@
 import { type KeyboardEvent, useCallback, useRef, useState } from "react";
 
-import { ArrowUp, Loader2, Square } from "lucide-react";
+import { ArrowUp, FileText, Loader2, MessageSquare, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat/chat.store";
 
 const MAX_HEIGHT_PX = 200;
@@ -18,6 +19,8 @@ export function ChatComposer() {
   const status = useChatStore((state) => state.status);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const stopGeneration = useChatStore((state) => state.stopGeneration);
+  const documentMode = useChatStore((state) => state.documentMode);
+  const setDocumentMode = useChatStore((state) => state.setDocumentMode);
 
   const generating = status === "waiting" || status === "streaming";
   const stopping = status === "stopping";
@@ -48,6 +51,20 @@ export function ChatComposer() {
   return (
     <div className="shrink-0 px-8 pb-6">
       <div className="mx-auto w-full max-w-3xl">
+        <div className="mb-2 flex items-center gap-1 rounded-full border border-border/60 bg-card/60 p-0.5 text-xs w-fit">
+          <ModeButton
+            active={!documentMode}
+            onClick={() => setDocumentMode(false)}
+            icon={<MessageSquare className="h-3.5 w-3.5" />}
+            label="Chat Normally"
+          />
+          <ModeButton
+            active={documentMode}
+            onClick={() => setDocumentMode(true)}
+            icon={<FileText className="h-3.5 w-3.5" />}
+            label="Chat With Documents"
+          />
+        </div>
         <div className="flex items-end gap-2 rounded-2xl border border-border/70 bg-card p-2 shadow-lg shadow-black/20 transition-colors focus-within:border-ring/50">
           <textarea
             ref={textareaRef}
@@ -89,9 +106,39 @@ export function ChatComposer() {
           )}
         </div>
         <p className="mt-2 text-center text-[11px] text-muted-foreground/70">
-          Luna runs locally with Ollama and can make mistakes.
+          {documentMode
+            ? "Answers are grounded in your uploaded documents, with citations."
+            : "Luna runs locally with Ollama and can make mistakes."}
         </p>
       </div>
     </div>
+  );
+}
+
+function ModeButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition-colors",
+        active
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

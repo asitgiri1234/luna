@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { aiCore } from "@/ai";
+import type { Citation } from "@/ai/documents/citation.types";
 import type {
   ConversationError,
   ConversationMessage,
@@ -27,11 +28,16 @@ interface ChatState {
   messages: ChatMessage[];
   status: ChatStatus;
   error: ChatError | null;
+  /** "Chat With Documents" toggle — grounds answers in uploaded documents. */
+  documentMode: boolean;
   sendMessage: (content: string) => void;
   stopGeneration: () => void;
   regenerate: () => void;
   newChat: () => void;
   dismissError: () => void;
+  setDocumentMode: (enabled: boolean) => void;
+  /** Opens the source document for a citation. */
+  openCitation: (citation: Citation) => void;
 }
 
 const conversation = aiCore.conversation;
@@ -43,10 +49,16 @@ export const useChatStore = create<ChatState>()((set) => {
 
   return {
     ...conversation.getState(),
+    documentMode: conversation.isDocumentMode(),
     sendMessage: (content) => conversation.send(content),
     stopGeneration: () => conversation.stop(),
     regenerate: () => conversation.regenerate(),
     newChat: () => conversation.reset(),
     dismissError: () => conversation.dismissError(),
+    setDocumentMode: (enabled) => {
+      conversation.setDocumentMode(enabled);
+      set({ documentMode: enabled });
+    },
+    openCitation: (citation) => void aiCore.documentChat.openCitation(citation),
   };
 });

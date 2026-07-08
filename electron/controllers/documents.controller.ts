@@ -4,6 +4,8 @@ import {
   DocumentError,
   type DocumentRecord,
   type ProcessDocumentInput,
+  type RetrievedChunk,
+  type RetrieveQuery,
   isDocumentKind,
 } from "../../shared/documents";
 import { PersistenceError } from "../../shared/conversations";
@@ -11,6 +13,7 @@ import type { FileRecord } from "../../shared/files";
 import { createLogger } from "../../shared/logger";
 import { DocumentRepository } from "../documents/document.repository";
 import { buildDocument } from "../documents/pipeline";
+import { RetrieverService } from "../documents/retrieval/retriever.service";
 import { FileRepository } from "../files/file.repository";
 import { resolveStorage } from "../files/workspace";
 
@@ -70,6 +73,7 @@ function failedRecord(file: FileRecord, error: DocumentError): DocumentRecord {
 export class DocumentsController {
   private readonly documents = new DocumentRepository();
   private readonly files = new FileRepository();
+  private readonly retriever = new RetrieverService();
 
   /** Parse → normalize → chunk → store for one uploaded file. */
   process(input: ProcessDocumentInput): Promise<DocResult<DocumentRecord>> {
@@ -122,5 +126,16 @@ export class DocumentsController {
       this.documents.delete(documentId);
       return null;
     });
+  }
+
+  /** Query → Top-K relevant chunks (used by document chat). */
+  retrieve(input: RetrieveQuery): Promise<DocResult<RetrievedChunk[]>> {
+    return run("retrieve", () =>
+      this.retriever.retrieve(input.query, {
+        k: input.k,
+        documentId: input.documentId,
+        minScore: input.minScore,
+      }),
+    );
   }
 }

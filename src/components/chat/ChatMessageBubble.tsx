@@ -6,6 +6,7 @@ import { type ChatMessage, useChatStore } from "@/store/chat/chat.store";
 
 import { ChatMarkdown } from "./ChatMarkdown";
 import { ChatMessageActions } from "./ChatMessageActions";
+import { MessageCitations } from "./MessageCitations";
 import { TypingDots } from "./TypingDots";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
@@ -68,6 +69,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
             </>
           )}
         </div>
+        {message.documentChat && <MessageCitations documentChat={message.documentChat} />}
         <div className="flex items-center gap-2 pl-1">
           <span className="mt-1 text-[10px] text-muted-foreground/70">
             {timestamp}

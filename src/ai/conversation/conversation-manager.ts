@@ -8,7 +8,10 @@ import type {
   ConversationMessage,
   ConversationState,
   GenerationHandle,
+  MessageDocumentContext,
 } from "@/ai/types";
+import type { DocumentChatPort } from "@/ai/documents/citation.types";
+import type { RetrievedContextChunk } from "@/ai/prompt/prompt-context";
 import type { ConversationMemoryPort } from "@/ai/memory/memory-service";
 import type { ConversationAutomationPort } from "@/automation/automation.service";
 import type { ConversationMeta } from "@shared/conversations";
@@ -61,6 +64,8 @@ export interface ConversationDeps {
   memory: ConversationMemoryPort;
   /** Optional: lets a user message trigger permission-gated tool execution. */
   automation?: ConversationAutomationPort;
+  /** Optional: grounds a turn in uploaded documents when document mode is on. */
+  documentChat?: DocumentChatPort;
   logger: Logger;
 }
 
@@ -89,8 +94,19 @@ export class ConversationManager {
   private epoch = 0;
   /** User text to mine for memories once the current exchange completes. */
   private pendingExtractionText: string | null = null;
+  /** When true, each turn retrieves document context before generating. */
+  private documentMode = false;
 
   constructor(private readonly deps: ConversationDeps) {}
+
+  /** Toggles document-grounded chat ("Chat With Documents"). */
+  setDocumentMode(enabled: boolean): void {
+    this.documentMode = enabled;
+  }
+
+  isDocumentMode(): boolean {
+    return this.documentMode;
+  }
 
   // -- Subscription ---------------------------------------------------------
 
@@ -385,6 +401,15 @@ export class ConversationManager {
     void this.beginStream(epoch, query);
   }
 
+  /** Attaches document-chat grounding to the trailing assistant message. */
+  private attachDocumentContext(documentChat: MessageDocumentContext): void {
+    const messages = [...this.state.messages];
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    messages[messages.length - 1] = { ...last, documentChat };
+    this.setState({ messages });
+  }
+
   private async beginStream(epoch: number, query: string): Promise<void> {
     const { provider, config, promptBuilder, contextManager, logger } = this.deps;
 
@@ -393,10 +418,28 @@ export class ConversationManager {
     if (epoch !== this.epoch) return; // thread switched while retrieving
     if (memory.length > 0) logger.debug("injected memories", { count: memory.length });
 
+    // In document mode, retrieve relevant chunks and attach citations to
+    // the pending assistant message before streaming begins.
+    let context: RetrievedContextChunk[] = [];
+    if (this.documentMode && this.deps.documentChat) {
+      const grounding = await this.deps.documentChat.answerWithDocuments(
+        query,
+        this.activeConversationId,
+      );
+      if (epoch !== this.epoch) return; // thread switched while retrieving
+      context = grounding.context;
+      this.attachDocumentContext({
+        citations: grounding.citations,
+        documentsUsed: grounding.documentsUsed,
+        noResults: grounding.noResults,
+      });
+      logger.debug("injected document context", { chunks: context.length });
+    }
+
     const history: AiChatMessage[] = this.state.messages
       .filter((m) => m.content !== "" || m.role === "user")
       .map(({ role, content }) => ({ role, content }));
-    const prompt = promptBuilder.build({ history, memory });
+    const prompt = promptBuilder.build({ history, memory, context });
 
     const model = resolveModel(config.model);
     const fitted = contextManager.fitToWindow(prompt, {

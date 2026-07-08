@@ -4,6 +4,8 @@ import {
   DocumentError,
   type DocumentRecord,
   type ProcessDocumentInput,
+  type RetrievedChunk,
+  type RetrieveQuery,
 } from "@shared/documents";
 import type { LunaDocumentsApi } from "@/types/electron";
 
@@ -51,5 +53,10 @@ export const documentService = {
 
   async remove(documentId: string): Promise<void> {
     unwrap(await bridge().remove(documentId));
+  },
+
+  /** Query → Top-K relevant chunks (for document chat). */
+  async retrieve(input: RetrieveQuery): Promise<RetrievedChunk[]> {
+    return unwrap(await bridge().retrieve(input));
   },
 };

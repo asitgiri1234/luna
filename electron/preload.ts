@@ -52,6 +52,8 @@ import {
   type DocumentChunk,
   type DocumentRecord,
   type ProcessDocumentInput,
+  type RetrievedChunk,
+  type RetrieveQuery,
 } from "../shared/documents";
 
 /**
@@ -199,6 +201,8 @@ const lunaApi = {
       ipcRenderer.invoke(DOCUMENT_CHANNELS.chunks, documentId),
     remove: (documentId: string): Promise<DocResult<null>> =>
       ipcRenderer.invoke(DOCUMENT_CHANNELS.remove, documentId),
+    retrieve: (input: RetrieveQuery): Promise<DocResult<RetrievedChunk[]>> =>
+      ipcRenderer.invoke(DOCUMENT_CHANNELS.retrieve, input),
   },
   platform: process.platform,
 };
