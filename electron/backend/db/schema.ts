@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /**
  * # Database schema (Drizzle ORM, SQLite)
@@ -169,4 +169,32 @@ export const documentChunks = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (table) => [index("idx_document_chunks_document").on(table.documentId)],
+);
+
+/**
+ * Vector embeddings for document chunks, produced by a local embedding
+ * model (via Ollama). One row per (chunk, model): the unique index lets
+ * the embedding service skip chunks that already have an embedding for a
+ * given model. `embedding` is the vector serialized as a JSON array of
+ * numbers; `dimensions` is its length. Deleting a chunk cascades here.
+ *
+ * This milestone only PRODUCES and stores embeddings — there is no
+ * vector search / retrieval yet.
+ */
+export const chunkEmbeddings = sqliteTable(
+  "chunk_embeddings",
+  {
+    id: text("id").primaryKey(),
+    chunkId: text("chunk_id")
+      .notNull()
+      .references(() => documentChunks.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    dimensions: integer("dimensions").notNull(),
+    embedding: text("embedding").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_chunk_embeddings_chunk").on(table.chunkId),
+    uniqueIndex("idx_chunk_embeddings_chunk_model").on(table.chunkId, table.model),
+  ],
 );
