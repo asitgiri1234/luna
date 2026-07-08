@@ -1,5 +1,8 @@
 import type { AiChatMessage } from "@/ai/types";
 
+import { ContextFormatter } from "./context-formatter";
+import type { ContextLimits, RetrievedContextChunk } from "./prompt-context";
+
 /**
  * # Prompt builder
  *
@@ -7,37 +10,59 @@ import type { AiChatMessage } from "@/ai/types";
  * assembled. Nothing else in the app (and certainly nothing in React)
  * constructs or concatenates prompt text.
  *
- * Assembly order:
+ * Assembly order (all inside the system message, then history):
  *   1. system prompt (from `AiConfig`)
- *   2. memory block            ← future: injected by the memory system
- *   3. conversation history    (already trimmed by the context manager
- *                               or trimmed downstream)
+ *   2. retrieved document context   ← RAG augmentation (this milestone)
+ *   3. memory block                 (things remembered about the user)
+ *   4. conversation history         (already trimmed by the context
+ *                                    manager or downstream)
+ *
+ * The document context is placed before the conversation history — and so
+ * before the latest user message — matching:
+ *
+ *   System Prompt
+ *   Relevant Document Context: …
+ *   Conversation History
+ *   User Message
  *
  * ## Extension point
- * The memory milestone passes `memory` entries here; tool-calling will
- * add a tool-instructions section. Both are additive changes to
- * `build()` — callers stay untouched.
+ * `context` (retrieved chunks) and `memory` are both additive: callers
+ * that pass neither get exactly the previous behavior.
  */
 
 export interface PromptInput {
   /** Conversation turns, oldest first, ending with the latest user turn. */
   history: AiChatMessage[];
-  /**
-   * Future memory facts to ground the reply in. Wired through today so
-   * the memory milestone plugs in without signature changes.
-   */
+  /** Memory facts to ground the reply in. */
   memory?: string[];
+  /** Retrieved document chunks to inject as context (RAG). */
+  context?: RetrievedContextChunk[];
 }
 
 export class PromptBuilder {
-  constructor(private readonly systemPrompt: string) {}
+  private readonly formatter: ContextFormatter;
 
-  build({ history, memory = [] }: PromptInput): AiChatMessage[] {
+  constructor(
+    private readonly systemPrompt: string,
+    /** Configurable budget for injected document context. */
+    contextLimits?: ContextLimits,
+  ) {
+    this.formatter = new ContextFormatter(contextLimits);
+  }
+
+  build({ history, memory = [], context = [] }: PromptInput): AiChatMessage[] {
     let system = this.systemPrompt;
+
+    const documentContext = this.formatter.buildDocumentContext(context);
+    if (documentContext) {
+      system += `\n\n${documentContext}`;
+    }
+
     if (memory.length > 0) {
       const facts = memory.map((fact) => `- ${fact}`).join("\n");
       system += `\n\n## Things you remember about the user\n${facts}`;
     }
+
     return [{ role: "system", content: system }, ...history];
   }
 }
