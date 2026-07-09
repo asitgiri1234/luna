@@ -46,6 +46,12 @@ import type {
   VisionAnalysis,
   VisionProgress,
 } from "@shared/documents";
+import type {
+  DbResult as PermissionDbResult,
+  PermissionId,
+  PermissionRecord,
+  PermissionStatus,
+} from "@shared/permissions";
 
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
@@ -143,6 +149,13 @@ export interface LunaDocumentsApi {
   onVisionProgress: (callback: (progress: VisionProgress) => void) => () => void;
 }
 
+export interface LunaPermissionsApi {
+  list: () => Promise<PermissionDbResult<PermissionRecord[]>>;
+  grant: (id: PermissionId) => Promise<PermissionDbResult<PermissionRecord>>;
+  revoke: (id: PermissionId) => Promise<PermissionDbResult<PermissionRecord>>;
+  status: (id: PermissionId) => Promise<PermissionDbResult<PermissionStatus>>;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
   ai: LunaAiApi;
@@ -151,6 +164,7 @@ export interface LunaApi {
   automation: LunaAutomationApi;
   files: LunaFilesApi;
   documents: LunaDocumentsApi;
+  permissions: LunaPermissionsApi;
   platform: NodeJS.Platform;
 }
 

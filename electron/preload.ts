@@ -58,6 +58,12 @@ import {
   type VisionAnalysis,
   type VisionProgress,
 } from "../shared/documents";
+import {
+  PERMISSION_CHANNELS,
+  type PermissionId,
+  type PermissionRecord,
+  type PermissionStatus,
+} from "../shared/permissions";
 
 /**
  * The only bridge between the renderer and the main process.
@@ -227,6 +233,16 @@ const lunaApi = {
       ipcRenderer.on(DOCUMENT_CHANNELS.visionProgress, listener);
       return () => ipcRenderer.off(DOCUMENT_CHANNELS.visionProgress, listener);
     },
+  },
+  permissions: {
+    list: (): Promise<DbResult<PermissionRecord[]>> =>
+      ipcRenderer.invoke(PERMISSION_CHANNELS.list),
+    grant: (id: PermissionId): Promise<DbResult<PermissionRecord>> =>
+      ipcRenderer.invoke(PERMISSION_CHANNELS.grant, id),
+    revoke: (id: PermissionId): Promise<DbResult<PermissionRecord>> =>
+      ipcRenderer.invoke(PERMISSION_CHANNELS.revoke, id),
+    status: (id: PermissionId): Promise<DbResult<PermissionStatus>> =>
+      ipcRenderer.invoke(PERMISSION_CHANNELS.status, id),
   },
   platform: process.platform,
 };

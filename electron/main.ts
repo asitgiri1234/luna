@@ -11,6 +11,7 @@ import { ConversationsController } from "./controllers/conversations.controller"
 import { DocumentsController } from "./controllers/documents.controller";
 import { FilesController } from "./controllers/files.controller";
 import { MemoryController } from "./controllers/memory.controller";
+import { PermissionsController } from "./controllers/permissions.controller";
 import { initReminders, pruneReminders } from "./automation/reminders";
 import { registerAiIpc } from "./ipc/ai.ipc";
 import { registerAutomationIpc } from "./ipc/automation.ipc";
@@ -18,6 +19,7 @@ import { registerConversationsIpc } from "./ipc/conversations.ipc";
 import { registerDocumentsIpc } from "./ipc/documents.ipc";
 import { registerFilesIpc } from "./ipc/files.ipc";
 import { registerMemoryIpc } from "./ipc/memory.ipc";
+import { registerPermissionsIpc } from "./ipc/permissions.ipc";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -130,6 +132,7 @@ app.whenReady().then(() => {
   registerAutomationIpc();
   registerFilesIpc(new FilesController());
   registerDocumentsIpc(new DocumentsController());
+  registerPermissionsIpc(new PermissionsController());
   pruneReminders();
   initReminders();
   createMainWindow();

@@ -152,6 +152,19 @@ export const documents = sqliteTable(
 );
 
 /**
+ * Privacy Dashboard: the live state of each capability Luna uses. Only
+ * `status` + `last_used` are stored; the name/description/reason are
+ * static metadata in `shared/permissions.ts` (PERMISSION_CATALOG), so
+ * copy changes never need a migration. `id` is a stable PermissionId.
+ */
+export const permissions = sqliteTable("permissions", {
+  id: text("id").primaryKey(),
+  status: text("status").notNull(),
+  lastUsed: integer("last_used"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/**
  * Ordered, chunked slices of a document, prepared for a future
  * embedding / semantic-index milestone. `metadata` is raw JSON text
  * (page, heading path, counts, strategy). No vectors are stored yet.
