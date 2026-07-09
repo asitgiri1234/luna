@@ -38,12 +38,17 @@ interface MemoryUiState {
 
   // Memory-page operations
   refresh: () => Promise<void>;
-  setQuery: (query: string) => void;
+  /** Search saved memories by key/value (updates the query + refreshes). */
+  searchMemories: (query: string) => void;
   setCategoryFilter: (filter: CategoryFilter) => void;
   setShowArchived: (show: boolean) => void;
-  edit: (id: string, patch: { category?: MemoryCategory; key?: string; value?: string }) => Promise<void>;
-  remove: (id: string) => Promise<void>;
-  setArchived: (id: string, isArchived: boolean) => Promise<void>;
+  editMemory: (
+    id: string,
+    patch: { category?: MemoryCategory; key?: string; value?: string },
+  ) => Promise<void>;
+  deleteMemory: (id: string) => Promise<void>;
+  archiveMemory: (id: string) => Promise<void>;
+  unarchiveMemory: (id: string) => Promise<void>;
 }
 
 const memory = aiCore.memory;
@@ -94,7 +99,7 @@ export const useMemoryStore = create<MemoryUiState>()((set, get) => {
       }
     },
 
-    setQuery: (query) => {
+    searchMemories: (query) => {
       set({ query });
       void get().refresh();
     },
@@ -102,16 +107,20 @@ export const useMemoryStore = create<MemoryUiState>()((set, get) => {
     setCategoryFilter: (categoryFilter) => set({ categoryFilter }),
     setShowArchived: (showArchived) => set({ showArchived }),
 
-    edit: async (id, patch) => {
+    editMemory: async (id, patch) => {
       await memory.updateMemory({ id, ...patch });
     },
 
-    remove: async (id) => {
+    deleteMemory: async (id) => {
       await memory.deleteMemory(id);
     },
 
-    setArchived: async (id, isArchived) => {
-      await memory.archiveMemory(id, isArchived);
+    archiveMemory: async (id) => {
+      await memory.archiveMemory(id, true);
+    },
+
+    unarchiveMemory: async (id) => {
+      await memory.archiveMemory(id, false);
     },
   };
 });

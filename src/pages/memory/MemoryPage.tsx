@@ -21,7 +21,7 @@ export function MemoryPage() {
   const categoryFilter = useMemoryStore((state) => state.categoryFilter);
   const showArchived = useMemoryStore((state) => state.showArchived);
   const status = useMemoryStore((state) => state.status);
-  const setQuery = useMemoryStore((state) => state.setQuery);
+  const searchMemories = useMemoryStore((state) => state.searchMemories);
   const setCategoryFilter = useMemoryStore((state) => state.setCategoryFilter);
   const setShowArchived = useMemoryStore((state) => state.setShowArchived);
 
@@ -60,10 +60,10 @@ export function MemoryPage() {
         <div className="relative">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search memories…"
+            placeholder="Search memories by key or value…"
             className="h-10 rounded-xl pl-9"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => searchMemories(event.target.value)}
           />
         </div>
 
