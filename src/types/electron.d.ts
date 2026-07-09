@@ -1,3 +1,4 @@
+import type { ActivityQuery, ActivityRecord } from "@shared/activity";
 import type { AiStreamEvent, AiStreamRequest, ProviderHealth } from "@shared/ai";
 import type {
   ConversationMeta,
@@ -156,6 +157,11 @@ export interface LunaPermissionsApi {
   status: (id: PermissionId) => Promise<PermissionDbResult<PermissionStatus>>;
 }
 
+export interface LunaActivityApi {
+  list: (query?: ActivityQuery) => Promise<DbResult<ActivityRecord[]>>;
+  clear: () => Promise<DbResult<null>>;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
   ai: LunaAiApi;
@@ -165,6 +171,7 @@ export interface LunaApi {
   files: LunaFilesApi;
   documents: LunaDocumentsApi;
   permissions: LunaPermissionsApi;
+  activity: LunaActivityApi;
   platform: NodeJS.Platform;
 }
 

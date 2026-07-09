@@ -1,6 +1,7 @@
 import { Navigate, createHashRouter } from "react-router-dom";
 
 import { AppLayout } from "@/layouts/AppLayout";
+import { ActivityPage } from "@/pages/activity/ActivityPage";
 import { ChatPage } from "@/pages/chat/ChatPage";
 import { FilesPage } from "@/pages/files/FilesPage";
 import { HistoryPage } from "@/pages/history/HistoryPage";
@@ -21,6 +22,7 @@ export const router = createHashRouter([
       { path: "/chats", element: <HistoryPage /> },
       { path: "/files", element: <FilesPage /> },
       { path: "/memory", element: <MemoryPage /> },
+      { path: "/activity", element: <ActivityPage /> },
       { path: "/privacy", element: <PrivacyPage /> },
       { path: "/settings", element: <SettingsPage /> },
       { path: "*", element: <Navigate to="/chat" replace /> },

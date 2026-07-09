@@ -6,6 +6,7 @@ import {
   type PermissionStatus,
 } from "../../shared/permissions";
 import { createLogger } from "../../shared/logger";
+import { activityService } from "../activity/activity.service";
 import { PermissionService } from "../permissions/permission.service";
 
 /**
@@ -36,11 +37,27 @@ export class PermissionsController {
   }
 
   grant(id: PermissionId): DbResult<PermissionRecord> {
-    return run("grant", () => this.service.grantPermission(id));
+    const result = run("grant", () => this.service.grantPermission(id));
+    if (result.ok) {
+      activityService.logActivity({
+        type: "permission-granted",
+        description: `Enabled ${result.data.name}`,
+        metadata: { id },
+      });
+    }
+    return result;
   }
 
   revoke(id: PermissionId): DbResult<PermissionRecord> {
-    return run("revoke", () => this.service.revokePermission(id));
+    const result = run("revoke", () => this.service.revokePermission(id));
+    if (result.ok) {
+      activityService.logActivity({
+        type: "permission-revoked",
+        description: `Disabled ${result.data.name}`,
+        metadata: { id },
+      });
+    }
+    return result;
   }
 
   status(id: PermissionId): DbResult<PermissionStatus> {

@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import {
+  ACTIVITY_CHANNELS,
+  type ActivityQuery,
+  type ActivityRecord,
+} from "../shared/activity";
+import {
   AI_CHANNELS,
   type AiStreamEvent,
   type AiStreamRequest,
@@ -243,6 +248,11 @@ const lunaApi = {
       ipcRenderer.invoke(PERMISSION_CHANNELS.revoke, id),
     status: (id: PermissionId): Promise<DbResult<PermissionStatus>> =>
       ipcRenderer.invoke(PERMISSION_CHANNELS.status, id),
+  },
+  activity: {
+    list: (query?: ActivityQuery): Promise<DbResult<ActivityRecord[]>> =>
+      ipcRenderer.invoke(ACTIVITY_CHANNELS.list, query ?? {}),
+    clear: (): Promise<DbResult<null>> => ipcRenderer.invoke(ACTIVITY_CHANNELS.clear),
   },
   platform: process.platform,
 };

@@ -1,4 +1,4 @@
-import { Brain, FolderOpen, MessageSquare, Plus, Settings, ShieldCheck } from "lucide-react";
+import { Activity, Brain, FolderOpen, MessageSquare, Plus, Settings, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ const navItems = [
   { to: "/chats", label: "Chats", icon: MessageSquare },
   { to: "/files", label: "Files", icon: FolderOpen },
   { to: "/memory", label: "Memory", icon: Brain },
+  { to: "/activity", label: "Activity", icon: Activity },
   { to: "/privacy", label: "Privacy", icon: ShieldCheck },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;

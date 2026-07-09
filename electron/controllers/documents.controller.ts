@@ -13,6 +13,7 @@ import {
 import { PersistenceError } from "../../shared/conversations";
 import type { FileRecord } from "../../shared/files";
 import { createLogger } from "../../shared/logger";
+import { activityService } from "../activity/activity.service";
 import { DocumentRepository } from "../documents/document.repository";
 import { OCRService } from "../documents/ocr/ocr.service";
 import { buildDocument } from "../documents/pipeline";
@@ -83,8 +84,8 @@ export class DocumentsController {
   private readonly vision = new VisionService();
 
   /** Parse → normalize → chunk → store for one uploaded file. */
-  process(input: ProcessDocumentInput): Promise<DocResult<DocumentRecord>> {
-    return run("process", async () => {
+  async process(input: ProcessDocumentInput): Promise<DocResult<DocumentRecord>> {
+    const result = await run("process", async () => {
       const file = this.files.get(input.sourceFileId);
       if (!file) throw new DocumentError("not-found", "That file no longer exists.");
       if (!isDocumentKind(file.type)) {
@@ -113,6 +114,18 @@ export class DocumentsController {
         throw error;
       }
     });
+    if (result.ok) {
+      const failed = result.data.status === "failed";
+      activityService.logActivity({
+        type: "document-parsed",
+        description: failed
+          ? `Could not parse ${result.data.title}`
+          : `Parsed ${result.data.title}`,
+        status: failed ? "failed" : "success",
+        metadata: { documentId: result.data.id, kind: result.data.kind },
+      });
+    }
+    return result;
   }
 
   /** The document for a source file id, or null. */
@@ -136,14 +149,22 @@ export class DocumentsController {
   }
 
   /** Query → Top-K relevant chunks (used by document chat). */
-  retrieve(input: RetrieveQuery): Promise<DocResult<RetrievedChunk[]>> {
-    return run("retrieve", () =>
+  async retrieve(input: RetrieveQuery): Promise<DocResult<RetrievedChunk[]>> {
+    const result = await run("retrieve", () =>
       this.retriever.retrieve(input.query, {
         k: input.k,
         documentId: input.documentId,
         minScore: input.minScore,
       }),
     );
+    if (result.ok) {
+      activityService.logActivity({
+        type: "document-chat",
+        description: `Searched documents for "${input.query}"`,
+        metadata: { matches: result.data.length },
+      });
+    }
+    return result;
   }
 
   /** OCR one image into a document, streaming progress to the sender. */

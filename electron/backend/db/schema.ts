@@ -211,3 +211,28 @@ export const chunkEmbeddings = sqliteTable(
     uniqueIndex("idx_chunk_embeddings_chunk_model").on(table.chunkId, table.model),
   ],
 );
+
+/**
+ * Activity History: an append-only audit log of important user and
+ * assistant actions (conversations, messages, memory changes, uploads,
+ * document parsing/chat, tools, permissions, …). Recorded from the
+ * existing main-process chokepoints. `metadata` is raw JSON text so a
+ * corrupt row degrades to a per-row parse failure the repository handles,
+ * never poisoning the query. Indexed by timestamp (newest-first listing)
+ * and by type (filtering).
+ */
+export const activities = sqliteTable(
+  "activities",
+  {
+    id: text("id").primaryKey(),
+    type: text("type").notNull(),
+    description: text("description").notNull(),
+    status: text("status").notNull(),
+    timestamp: integer("timestamp").notNull(),
+    metadata: text("metadata"),
+  },
+  (table) => [
+    index("idx_activities_timestamp").on(table.timestamp),
+    index("idx_activities_type").on(table.type),
+  ],
+);

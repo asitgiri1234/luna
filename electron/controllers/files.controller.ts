@@ -13,6 +13,7 @@ import {
   SUPPORTED_EXTENSIONS,
 } from "../../shared/files";
 import { createLogger } from "../../shared/logger";
+import { activityService } from "../activity/activity.service";
 import { FileRepository } from "../files/file.repository";
 import {
   copyIntoWorkspace,
@@ -70,7 +71,7 @@ export class FilesController {
     uploadId: string,
     sourcePath: string,
   ): Promise<FileOpResult<ImportFileResult>> {
-    return run("import", async () => {
+    const result = await run("import", async () => {
       const id = crypto.randomUUID();
       const copied = await copyIntoWorkspace(id, sourcePath, (loaded, total) => {
         if (!sender.isDestroyed()) {
@@ -99,6 +100,14 @@ export class FilesController {
       this.repository.insert(record);
       return { file: record, duplicate: false };
     });
+    if (result.ok) {
+      activityService.logActivity({
+        type: "file-uploaded",
+        description: `Uploaded ${result.data.file.filename}`,
+        metadata: { fileId: result.data.file.id, duplicate: result.data.duplicate },
+      });
+    }
+    return result;
   }
 
   list(): Promise<FileOpResult<FileRecord[]>> {

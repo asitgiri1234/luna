@@ -7,6 +7,7 @@ import {
   type StoredMessage,
 } from "../../shared/conversations";
 import { createLogger } from "../../shared/logger";
+import { activityService } from "../activity/activity.service";
 import { ConversationRepository } from "../backend/db/conversation.repository";
 import { getDb } from "../backend/db/client";
 
@@ -39,7 +40,15 @@ export class ConversationsController {
   }
 
   create(input: CreateConversationInput): DbResult<ConversationMeta> {
-    return run("create", () => this.repository().createConversation(input));
+    const result = run("create", () => this.repository().createConversation(input));
+    if (result.ok) {
+      activityService.logActivity({
+        type: "conversation-started",
+        description: `Started conversation "${result.data.title}"`,
+        metadata: { conversationId: result.data.id },
+      });
+    }
+    return result;
   }
 
   remove(id: string): DbResult<null> {
@@ -72,10 +81,19 @@ export class ConversationsController {
   }
 
   saveMessage(input: SaveMessageInput): DbResult<null> {
-    return run("saveMessage", () => {
+    const result = run("saveMessage", () => {
       this.repository().saveMessage(input);
       return null;
     });
+    // Only user turns count as a "Message Sent"; assistant turns are the reply.
+    if (result.ok && input.role === "user") {
+      activityService.logActivity({
+        type: "message-sent",
+        description: "Sent a message",
+        metadata: { conversationId: input.conversationId },
+      });
+    }
+    return result;
   }
 
   deleteMessage(id: string): DbResult<null> {

@@ -10,6 +10,7 @@ import {
   type UpdateMemoryInput,
 } from "../../shared/memory";
 import { createLogger } from "../../shared/logger";
+import { activityService } from "../activity/activity.service";
 import { getDb } from "../backend/db/client";
 import { MemoryRepository } from "../backend/db/memory.repository";
 
@@ -41,14 +42,30 @@ export class MemoryController {
   }
 
   save(input: SaveMemoryInput): DbResult<SaveMemoryResult> {
-    return run("save", () => this.repository().saveMemory(input));
+    const result = run("save", () => this.repository().saveMemory(input));
+    if (result.ok) {
+      activityService.logActivity({
+        type: "memory-created",
+        description: `Remembered "${input.key}"`,
+        metadata: { key: input.key, merged: result.data.duplicate },
+      });
+    }
+    return result;
   }
 
   update(input: UpdateMemoryInput): DbResult<null> {
-    return run("update", () => {
+    const result = run("update", () => {
       this.repository().updateMemory(input);
       return null;
     });
+    if (result.ok) {
+      activityService.logActivity({
+        type: "memory-updated",
+        description: "Updated a memory",
+        metadata: { id: input.id },
+      });
+    }
+    return result;
   }
 
   archive(id: string, isArchived: boolean): DbResult<null> {
@@ -59,10 +76,18 @@ export class MemoryController {
   }
 
   remove(id: string): DbResult<null> {
-    return run("remove", () => {
+    const result = run("remove", () => {
       this.repository().deleteMemory(id);
       return null;
     });
+    if (result.ok) {
+      activityService.logActivity({
+        type: "memory-deleted",
+        description: "Deleted a memory",
+        metadata: { id },
+      });
+    }
+    return result;
   }
 
   list(): DbResult<MemoryRecord[]> {
