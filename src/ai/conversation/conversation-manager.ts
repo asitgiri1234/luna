@@ -295,6 +295,8 @@ export class ConversationManager {
    * flag, but never interrupt the chat.
    */
   private enqueuePersist(operation: () => Promise<void>): void {
+    // Auto-save off: skip all conversation/message persistence entirely.
+    if (!this.deps.config.autoSaveConversations) return;
     this.persistQueue = this.persistQueue.then(async () => {
       if (!this.persistenceOk) return;
       try {
@@ -481,7 +483,9 @@ export class ConversationManager {
 
     const model = resolveModel(config.model);
     const fitted = contextManager.fitToWindow(prompt, {
-      contextLength: model.contextLength,
+      // The configured context window caps how much history is sent, never
+      // exceeding what the model itself supports.
+      contextLength: Math.min(config.contextWindow || model.contextLength, model.contextLength),
       reservedForResponse: config.maxTokens,
     });
 
@@ -499,7 +503,8 @@ export class ConversationManager {
         onToken: (token) => {
           if (epoch !== this.epoch) return;
           this.tokenBuffer += token;
-          this.scheduleFlush();
+          // Streaming off: buffer everything and render once at onDone.
+          if (config.streaming) this.scheduleFlush();
         },
         onDone: ({ cancelled }) => {
           if (epoch !== this.epoch) return;

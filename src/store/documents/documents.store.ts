@@ -9,6 +9,7 @@ import { type FileRecord, isImageKind } from "@shared/files";
 import { create } from "zustand";
 
 import { aiCore } from "@/ai";
+import { aiSettingsService } from "@/ai/settings/ai-settings.service";
 import { documentService } from "@/documents/document.service";
 
 /**
@@ -251,6 +252,9 @@ export const useDocumentsStore = create<DocumentsState>()((set, get) => {
               [imageId]: { phase: "ready", analysis },
             },
           }));
+        } else if (aiSettingsService.getAISettings().defaultVisionAnalysis) {
+          // "Default Vision Analysis" on: analyze an un-analyzed image now.
+          void get().analyzeVision(imageId);
         }
       } catch {
         // Absence of a cached analysis is not an error.

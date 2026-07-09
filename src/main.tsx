@@ -4,6 +4,9 @@ import { createRoot } from "react-dom/client";
 // Importing the appearance service applies the saved theme / accent /
 // font size / density to the document before the first paint.
 import "./appearance/appearance.service";
+// Importing the AI settings service applies the saved model / sampling /
+// streaming / auto-save onto the live AI config before the first request.
+import "./ai/settings/ai-settings.service";
 import App from "./App";
 import "./index.css";
 

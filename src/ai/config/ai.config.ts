@@ -19,11 +19,15 @@ export interface AiConfig {
   topP: number;
   /** Cap on generated tokens per response. */
   maxTokens: number;
+  /** History budget (tokens) used to fit the prompt to the context window. */
+  contextWindow: number;
   systemPrompt: string;
   /** Bump when `systemPrompt` changes meaningfully; stored per conversation. */
   systemPromptVersion: string;
-  /** When false, future features may prefer `generate()` over `stream()`. */
+  /** When false, tokens are buffered and the reply is shown all at once. */
   streaming: boolean;
+  /** When false, conversations and messages are not written to the database. */
+  autoSaveConversations: boolean;
 }
 
 export const defaultAiConfig: AiConfig = {
@@ -32,9 +36,11 @@ export const defaultAiConfig: AiConfig = {
   temperature: 0.7,
   topP: 0.9,
   maxTokens: 2048,
+  contextWindow: 32_768,
   systemPrompt:
     "You are Luna, a friendly and precise desktop AI assistant. " +
     "Answer concisely, use Markdown formatting, and use fenced code blocks with a language tag for code.",
   systemPromptVersion: "1",
   streaming: true,
+  autoSaveConversations: true,
 };

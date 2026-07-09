@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { aiCore } from "@/ai";
+import { aiSettingsService } from "@/ai/settings/ai-settings.service";
 import type { Citation } from "@/ai/documents/citation.types";
 import type {
   ConversationError,
@@ -52,6 +53,13 @@ interface ChatState {
 
 const conversation = aiCore.conversation;
 
+/** New chats start in the mode chosen in AI settings ("Default Document Chat Mode"). */
+function applyDefaultDocumentMode(): boolean {
+  const enabled = aiSettingsService.getAISettings().defaultDocumentChatMode;
+  conversation.setDocumentMode(enabled);
+  return enabled;
+}
+
 export const useChatStore = create<ChatState>()((set) => {
   conversation.subscribe((state) =>
     set({ messages: state.messages, status: state.status, error: state.error }),
@@ -59,14 +67,14 @@ export const useChatStore = create<ChatState>()((set) => {
 
   return {
     ...conversation.getState(),
-    documentMode: conversation.isDocumentMode(),
+    documentMode: applyDefaultDocumentMode(),
     currentImage: null,
     sendMessage: (content) => conversation.send(content),
     stopGeneration: () => conversation.stop(),
     regenerate: () => conversation.regenerate(),
     newChat: () => {
       conversation.reset();
-      set({ currentImage: null });
+      set({ currentImage: null, documentMode: applyDefaultDocumentMode() });
     },
     dismissError: () => conversation.dismissError(),
     setDocumentMode: (enabled) => {

@@ -13,6 +13,15 @@ import {
   THEME_OPTIONS,
 } from "@/appearance/appearance.types";
 import { useAppearanceStore } from "@/store/appearance/appearance.store";
+import {
+  CONTEXT_WINDOW_OPTIONS,
+  MAX_TOKENS_OPTIONS,
+  MODEL_OPTIONS,
+  type NumberOption,
+  TEMPERATURE_RANGE,
+  TOP_P_RANGE,
+} from "@/ai/settings/ai-settings.types";
+import { useAISettingsStore } from "@/store/ai-settings/ai-settings.store";
 
 interface SettingRowProps {
   label: string;
@@ -75,9 +84,113 @@ function OptionRow<T extends string>({
   );
 }
 
+/** A labelled row with a controlled on/off Switch. */
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-6 py-4">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+/** A labelled row whose control is a native select of values. */
+function SelectRow<T extends string | number>({
+  label,
+  description,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-6 py-4">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+      <select
+        value={String(value)}
+        onChange={(event) => {
+          const raw = event.target.value;
+          const next = options.find((option) => String(option.value) === raw);
+          if (next) onChange(next.value);
+        }}
+        className="h-9 rounded-lg border border-border/70 bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
+      >
+        {options.map((option) => (
+          <option key={String(option.value)} value={String(option.value)}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** A labelled row whose control is a range slider with a live value read-out. */
+function SliderRow({
+  label,
+  description,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-6 py-4">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="h-1.5 w-40 cursor-pointer appearance-none rounded-full bg-secondary accent-primary"
+        />
+        <span className="w-9 text-right text-sm tabular-nums text-muted-foreground">
+          {value.toFixed(2)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /**
- * Settings page. The Appearance section is live: every control applies
- * immediately and persists locally through the appearance store.
+ * Settings page. The Appearance and AI sections are live: every control
+ * applies immediately and persists locally through its store.
  */
 export function SettingsPage() {
   const theme = useAppearanceStore((state) => state.theme);
@@ -90,6 +203,8 @@ export function SettingsPage() {
   const updateFontSize = useAppearanceStore((state) => state.updateFontSize);
   const updateDensity = useAppearanceStore((state) => state.updateDensity);
   const updateSidebar = useAppearanceStore((state) => state.updateSidebar);
+
+  const ai = useAISettingsStore();
 
   return (
     <PageContainer title="Settings" description="Configure how Luna looks and behaves.">
@@ -163,6 +278,83 @@ export function SettingsPage() {
             options={SIDEBAR_OPTIONS}
             value={sidebar}
             onChange={updateSidebar}
+          />
+        </section>
+
+        <section className="rounded-xl border border-border/70 bg-card/50 px-5">
+          <h2 className="pt-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            AI
+          </h2>
+          <SelectRow
+            label="Default model"
+            description="The local model that answers your messages."
+            options={MODEL_OPTIONS}
+            value={ai.model}
+            onChange={ai.updateModel}
+          />
+          <Separator />
+          <SliderRow
+            label="Temperature"
+            description="Higher is more creative; lower is more focused."
+            value={ai.temperature}
+            min={TEMPERATURE_RANGE.min}
+            max={TEMPERATURE_RANGE.max}
+            step={TEMPERATURE_RANGE.step}
+            onChange={ai.updateTemperature}
+          />
+          <Separator />
+          <SliderRow
+            label="Top P"
+            description="Nucleus sampling: the probability mass to sample from."
+            value={ai.topP}
+            min={TOP_P_RANGE.min}
+            max={TOP_P_RANGE.max}
+            step={TOP_P_RANGE.step}
+            onChange={ai.updateTopP}
+          />
+          <Separator />
+          <SelectRow
+            label="Max tokens"
+            description="The longest a single response can be."
+            options={MAX_TOKENS_OPTIONS as readonly NumberOption[]}
+            value={ai.maxTokens}
+            onChange={ai.updateMaxTokens}
+          />
+          <Separator />
+          <SelectRow
+            label="Context window size"
+            description="How much conversation history is sent with each request."
+            options={CONTEXT_WINDOW_OPTIONS as readonly NumberOption[]}
+            value={ai.contextWindow}
+            onChange={ai.updateContextWindow}
+          />
+          <Separator />
+          <ToggleRow
+            label="Streaming"
+            description="Show the response as it is generated, token by token."
+            checked={ai.streaming}
+            onChange={ai.updateStreaming}
+          />
+          <Separator />
+          <ToggleRow
+            label="Auto-save conversations"
+            description="Keep a local history of your chats and messages."
+            checked={ai.autoSaveConversations}
+            onChange={ai.updateAutoSave}
+          />
+          <Separator />
+          <ToggleRow
+            label="Default document chat mode"
+            description="Start new chats grounded in your uploaded documents."
+            checked={ai.defaultDocumentChatMode}
+            onChange={ai.updateDocumentChatMode}
+          />
+          <Separator />
+          <ToggleRow
+            label="Default vision analysis"
+            description="Automatically analyze an image the first time you open it."
+            checked={ai.defaultVisionAnalysis}
+            onChange={ai.updateVisionAnalysis}
           />
         </section>
 
