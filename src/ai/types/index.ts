@@ -1,6 +1,7 @@
 import type { AiChatMessage, AiError, AiErrorCode, GenerationOptions } from "@shared/ai";
 
 import type { Citation, DocumentUsed } from "@/ai/documents/citation.types";
+import type { MessageImageContext } from "@/ai/documents/image-chat.types";
 
 /**
  * # AI core types (renderer)
@@ -63,6 +64,8 @@ export interface ConversationMessage {
   interrupted?: boolean;
   /** Present on assistant replies answered with document context. */
   documentChat?: MessageDocumentContext;
+  /** Present on assistant replies answered about an image. */
+  imageChat?: MessageImageContext;
 }
 
 export type ConversationStatus = "idle" | "waiting" | "streaming" | "stopping";

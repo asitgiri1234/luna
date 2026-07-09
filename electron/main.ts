@@ -31,6 +31,22 @@ process.env.APP_ROOT = path.join(__dirname, "..");
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 
+// Safety net: a stray error in a background worker or third-party library
+// (e.g. tesseract.js hitting a corrupt image) must not crash the app with a
+// native error dialog. Log it and keep the app running; user-facing
+// operations already return classified errors through their own try/catch.
+const processLog = createLogger("main:process");
+process.on("uncaughtException", (error) => {
+  processLog.error("uncaught exception", {
+    message: error instanceof Error ? error.message : String(error),
+  });
+});
+process.on("unhandledRejection", (reason) => {
+  processLog.error("unhandled rejection", {
+    message: reason instanceof Error ? reason.message : String(reason),
+  });
+});
+
 let mainWindow: BrowserWindow | null = null;
 
 function createMainWindow(): void {

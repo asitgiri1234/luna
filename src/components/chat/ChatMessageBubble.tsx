@@ -7,6 +7,7 @@ import { type ChatMessage, useChatStore } from "@/store/chat/chat.store";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { ChatMessageActions } from "./ChatMessageActions";
 import { MessageCitations } from "./MessageCitations";
+import { MessageImage } from "./MessageImage";
 import { TypingDots } from "./TypingDots";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
@@ -54,6 +55,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     >
       <div className="mt-0.5 h-7 w-7 shrink-0 rounded-full bg-gradient-to-br from-violet-400 via-indigo-400 to-indigo-600 shadow-md shadow-indigo-500/20" />
       <div className="min-w-0 flex-1">
+        {message.imageChat && <MessageImage imageChat={message.imageChat} />}
         <div className="rounded-2xl rounded-tl-md border border-border/50 bg-card/60 px-4 py-3 shadow-sm">
           {waitingForFirstToken ? (
             <TypingDots />

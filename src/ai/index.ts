@@ -10,6 +10,7 @@ import { MemoryExtractor } from "./memory/memory-extractor";
 import type { MemoryRepository } from "./memory/memory-repository";
 import { MemoryService } from "./memory/memory-service";
 import { DocumentChatService } from "./documents/document-chat.service";
+import { ImageChatService } from "./documents/image-chat.service";
 import { PromptBuilder } from "./prompt/prompt-builder";
 import type { AIProvider } from "./provider/ai-provider";
 import { createProvider } from "./provider/provider-factory";
@@ -47,6 +48,7 @@ export interface AiCore {
   tools: ToolSystem;
   automation: AutomationSystem;
   documentChat: DocumentChatService;
+  imageChat: ImageChatService;
 }
 
 export interface AiCoreOverrides {
@@ -85,6 +87,12 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     createLogger("ai:document-chat"),
   );
 
+  const imageChat = new ImageChatService(
+    (imageId) => documentService.visionGet(imageId),
+    async (imageId) => (await fileService.list()).find((file) => file.id === imageId) ?? null,
+    createLogger("ai:image-chat"),
+  );
+
   const conversation = new ConversationManager({
     provider,
     config,
@@ -94,6 +102,7 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     memory,
     automation: automation.service,
     documentChat,
+    imageChat,
     logger: createLogger("ai:conversation"),
   });
 
@@ -107,6 +116,7 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     tools,
     automation,
     documentChat,
+    imageChat,
   };
 }
 

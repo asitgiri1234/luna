@@ -11,6 +11,7 @@ import type {
   MessageDocumentContext,
 } from "@/ai/types";
 import type { DocumentChatPort } from "@/ai/documents/citation.types";
+import type { ImageChatPort, MessageImageContext } from "@/ai/documents/image-chat.types";
 import type { RetrievedContextChunk } from "@/ai/prompt/prompt-context";
 import type { ConversationMemoryPort } from "@/ai/memory/memory-service";
 import type { ConversationAutomationPort } from "@/automation/automation.service";
@@ -66,6 +67,8 @@ export interface ConversationDeps {
   automation?: ConversationAutomationPort;
   /** Optional: grounds a turn in uploaded documents when document mode is on. */
   documentChat?: DocumentChatPort;
+  /** Optional: grounds a turn in an uploaded image when an image is selected. */
+  imageChat?: ImageChatPort;
   logger: Logger;
 }
 
@@ -96,6 +99,8 @@ export class ConversationManager {
   private pendingExtractionText: string | null = null;
   /** When true, each turn retrieves document context before generating. */
   private documentMode = false;
+  /** When set, each turn is grounded in this image (image chat). */
+  private imageContextId: string | null = null;
 
   constructor(private readonly deps: ConversationDeps) {}
 
@@ -106,6 +111,15 @@ export class ConversationManager {
 
   isDocumentMode(): boolean {
     return this.documentMode;
+  }
+
+  /** Selects the image this conversation is about (null exits image chat). */
+  setImageContext(imageId: string | null): void {
+    this.imageContextId = imageId;
+  }
+
+  getImageContextId(): string | null {
+    return this.imageContextId;
   }
 
   // -- Subscription ---------------------------------------------------------
@@ -204,6 +218,7 @@ export class ConversationManager {
     this.tokenBuffer = "";
     this.activeConversationId = null;
     this.titlePendingFor = null;
+    this.imageContextId = null;
     this.setState({ messages: [], status: "idle", error: null });
   }
 
@@ -410,6 +425,15 @@ export class ConversationManager {
     this.setState({ messages });
   }
 
+  /** Attaches image-chat grounding to the trailing assistant message. */
+  private attachImageContext(imageChat: MessageImageContext): void {
+    const messages = [...this.state.messages];
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+    messages[messages.length - 1] = { ...last, imageChat };
+    this.setState({ messages });
+  }
+
   private async beginStream(epoch: number, query: string): Promise<void> {
     const { provider, config, promptBuilder, contextManager, logger } = this.deps;
 
@@ -418,10 +442,24 @@ export class ConversationManager {
     if (epoch !== this.epoch) return; // thread switched while retrieving
     if (memory.length > 0) logger.debug("injected memories", { count: memory.length });
 
-    // In document mode, retrieve relevant chunks and attach citations to
-    // the pending assistant message before streaming begins.
+    // Ground the turn: an image being discussed takes priority; otherwise
+    // document mode. The chunks are attached to the pending assistant
+    // message before streaming begins.
     let context: RetrievedContextChunk[] = [];
-    if (this.documentMode && this.deps.documentChat) {
+    if (this.imageContextId && this.deps.imageChat) {
+      const grounding = await this.deps.imageChat.answerAboutImage(this.imageContextId, query);
+      if (epoch !== this.epoch) return; // thread switched while retrieving
+      context = grounding.context;
+      this.attachImageContext({
+        imageId: grounding.imageId,
+        filename: grounding.filename,
+        hasAnalysis: grounding.hasAnalysis,
+      });
+      logger.debug("injected image context", {
+        imageId: grounding.imageId,
+        hasAnalysis: grounding.hasAnalysis,
+      });
+    } else if (this.documentMode && this.deps.documentChat) {
       const grounding = await this.deps.documentChat.answerWithDocuments(
         query,
         this.activeConversationId,

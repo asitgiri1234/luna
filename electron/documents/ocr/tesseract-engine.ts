@@ -43,6 +43,13 @@ export class TesseractEngine implements OcrEngine {
           const status = m.status?.includes("recogni") ? "recognizing" : "loading";
           this.reporter(status, progress);
         },
+        // Without this, a rejected job (e.g. a corrupt image) makes
+        // tesseract.js `throw` inside its worker message handler, which
+        // surfaces as an uncaught exception (an Electron error dialog).
+        // The recognize() promise still rejects, so callers handle it.
+        errorHandler: (error: unknown) => {
+          log.warn("tesseract worker error", { message: String(error) });
+        },
       });
       log.info("tesseract worker ready", { cachePath });
       return worker as unknown as TesseractWorker;

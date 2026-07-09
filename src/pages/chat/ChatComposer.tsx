@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useCallback, useRef, useState } from "react";
 
-import { ArrowUp, FileText, Loader2, MessageSquare, Square } from "lucide-react";
+import { ArrowUp, FileText, ImageIcon, Loader2, MessageSquare, Square, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,8 @@ export function ChatComposer() {
   const stopGeneration = useChatStore((state) => state.stopGeneration);
   const documentMode = useChatStore((state) => state.documentMode);
   const setDocumentMode = useChatStore((state) => state.setDocumentMode);
+  const currentImage = useChatStore((state) => state.currentImage);
+  const setImageContext = useChatStore((state) => state.setImageContext);
 
   const generating = status === "waiting" || status === "streaming";
   const stopping = status === "stopping";
@@ -51,20 +53,37 @@ export function ChatComposer() {
   return (
     <div className="shrink-0 px-8 pb-6">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-2 flex items-center gap-1 rounded-full border border-border/60 bg-card/60 p-0.5 text-xs w-fit">
-          <ModeButton
-            active={!documentMode}
-            onClick={() => setDocumentMode(false)}
-            icon={<MessageSquare className="h-3.5 w-3.5" />}
-            label="Chat Normally"
-          />
-          <ModeButton
-            active={documentMode}
-            onClick={() => setDocumentMode(true)}
-            icon={<FileText className="h-3.5 w-3.5" />}
-            label="Chat With Documents"
-          />
-        </div>
+        {currentImage ? (
+          <div className="mb-2 flex w-fit items-center gap-2 rounded-full border border-border/60 bg-card/60 py-1 pr-1 pl-3 text-xs">
+            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">
+              Discussing <span className="font-medium text-foreground">{currentImage.filename}</span>
+            </span>
+            <button
+              type="button"
+              aria-label="Stop discussing image"
+              onClick={() => setImageContext(null)}
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <div className="mb-2 flex w-fit items-center gap-1 rounded-full border border-border/60 bg-card/60 p-0.5 text-xs">
+            <ModeButton
+              active={!documentMode}
+              onClick={() => setDocumentMode(false)}
+              icon={<MessageSquare className="h-3.5 w-3.5" />}
+              label="Chat Normally"
+            />
+            <ModeButton
+              active={documentMode}
+              onClick={() => setDocumentMode(true)}
+              icon={<FileText className="h-3.5 w-3.5" />}
+              label="Chat With Documents"
+            />
+          </div>
+        )}
         <div className="flex items-end gap-2 rounded-2xl border border-border/70 bg-card p-2 shadow-lg shadow-black/20 transition-colors focus-within:border-ring/50">
           <textarea
             ref={textareaRef}
@@ -106,9 +125,11 @@ export function ChatComposer() {
           )}
         </div>
         <p className="mt-2 text-center text-[11px] text-muted-foreground/70">
-          {documentMode
-            ? "Answers are grounded in your uploaded documents, with citations."
-            : "Luna runs locally with Ollama and can make mistakes."}
+          {currentImage
+            ? "Ask follow-up questions about this image; answers use its visual analysis."
+            : documentMode
+              ? "Answers are grounded in your uploaded documents, with citations."
+              : "Luna runs locally with Ollama and can make mistakes."}
         </p>
       </div>
     </div>

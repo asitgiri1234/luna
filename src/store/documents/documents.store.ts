@@ -8,6 +8,7 @@ import { type FileRecord, isImageKind } from "@shared/files";
 
 import { create } from "zustand";
 
+import { aiCore } from "@/ai";
 import { documentService } from "@/documents/document.service";
 
 /**
@@ -220,6 +221,8 @@ export const useDocumentsStore = create<DocumentsState>()((set, get) => {
       }));
       try {
         const analysis = await documentService.visionAnalyze(imageId);
+        // Refresh any cached image-chat context so follow-ups use the new analysis.
+        aiCore.imageChat.invalidate(imageId);
         set((state) => ({
           visionByFileId: {
             ...state.visionByFileId,

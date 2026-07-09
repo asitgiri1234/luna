@@ -1,7 +1,10 @@
-import { Eye, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Eye, Loader2, MessageSquare, RefreshCw, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { useChatStore } from "@/store/chat/chat.store";
 import { useDocumentsStore } from "@/store/documents/documents.store";
+import { useFilesStore } from "@/store/files/files.store";
 
 /**
  * Visual analysis section shown in the document detail panel for image
@@ -12,9 +15,21 @@ import { useDocumentsStore } from "@/store/documents/documents.store";
 export function VisionPanel({ fileId }: { fileId: string }) {
   const entry = useDocumentsStore((state) => state.visionByFileId[fileId]);
   const analyze = useDocumentsStore((state) => state.analyzeVision);
+  const closeDetail = useDocumentsStore((state) => state.closeDetail);
+  const filename = useFilesStore(
+    (state) => state.files.find((file) => file.id === fileId)?.filename ?? "image",
+  );
+  const setImageContext = useChatStore((state) => state.setImageContext);
+  const navigate = useNavigate();
 
   const phase = entry?.phase ?? "idle";
   const analysis = entry?.analysis ?? null;
+
+  const askAboutImage = (): void => {
+    setImageContext({ id: fileId, filename });
+    closeDetail();
+    navigate("/");
+  };
 
   return (
     <section className="mt-4">
@@ -86,6 +101,15 @@ export function VisionPanel({ fileId }: { fileId: string }) {
           </Button>
         </div>
       )}
+
+      <button
+        type="button"
+        onClick={askAboutImage}
+        className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <MessageSquare className="h-3.5 w-3.5" />
+        Ask about this image
+      </button>
     </section>
   );
 }
