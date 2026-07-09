@@ -61,6 +61,66 @@
   --sidebar-border: oklch(1 0 0 / 7%);
 }
 
+/* ------------------------------------------------------------------ */
+/* Appearance settings — accent, font size, and density                */
+/* Driven by data-* attributes on <html> set by AppearanceService.     */
+/* Accent overrides --primary/--ring; light rules first, then .dark    */
+/* rules (equal specificity) so dark wins when the theme is dark.       */
+/* ------------------------------------------------------------------ */
+
+:root[data-accent="blue"] {
+  --primary: oklch(0.55 0.2 255);
+  --ring: oklch(0.55 0.2 255);
+}
+:root[data-accent="purple"] {
+  --primary: oklch(0.55 0.22 295);
+  --ring: oklch(0.55 0.22 295);
+}
+:root[data-accent="green"] {
+  --primary: oklch(0.55 0.15 155);
+  --ring: oklch(0.55 0.15 155);
+}
+:root[data-accent="orange"] {
+  --primary: oklch(0.62 0.19 55);
+  --ring: oklch(0.62 0.19 55);
+}
+
+.dark[data-accent="blue"] {
+  --primary: oklch(0.7 0.16 250);
+  --ring: oklch(0.7 0.16 250);
+}
+.dark[data-accent="purple"] {
+  --primary: oklch(0.72 0.145 285);
+  --ring: oklch(0.72 0.145 285);
+}
+.dark[data-accent="green"] {
+  --primary: oklch(0.72 0.15 155);
+  --ring: oklch(0.72 0.15 155);
+}
+.dark[data-accent="orange"] {
+  --primary: oklch(0.75 0.16 60);
+  --ring: oklch(0.75 0.16 60);
+}
+
+/* Font size scales the root, so all rem-based type + spacing follow. */
+:root[data-font-size="small"] {
+  font-size: 14px;
+}
+:root[data-font-size="medium"] {
+  font-size: 16px;
+}
+:root[data-font-size="large"] {
+  font-size: 18px;
+}
+
+/* Density tunes Tailwind v4's global spacing unit (padding/margin/gap). */
+:root[data-density="comfortable"] {
+  --spacing: 0.25rem;
+}
+:root[data-density="compact"] {
+  --spacing: 0.2rem;
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

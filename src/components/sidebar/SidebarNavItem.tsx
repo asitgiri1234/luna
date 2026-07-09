@@ -9,11 +9,13 @@ interface SidebarNavItemProps {
   to: string;
   label: string;
   icon: LucideIcon;
+  /** Icon-only rail mode (label hidden, icon centered). */
+  collapsed?: boolean;
 }
 
-export function SidebarNavItem({ to, label, icon: Icon }: SidebarNavItemProps) {
+export function SidebarNavItem({ to, label, icon: Icon, collapsed }: SidebarNavItemProps) {
   return (
-    <NavLink to={to} className="relative block">
+    <NavLink to={to} className="relative block" title={collapsed ? label : undefined}>
       {({ isActive }) => (
         <>
           {isActive && (
@@ -26,13 +28,14 @@ export function SidebarNavItem({ to, label, icon: Icon }: SidebarNavItemProps) {
           <span
             className={cn(
               "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+              collapsed && "justify-center",
               isActive
                 ? "font-medium text-sidebar-accent-foreground"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <Icon className="h-4 w-4 shrink-0" />
+            {!collapsed && label}
           </span>
         </>
       )}
