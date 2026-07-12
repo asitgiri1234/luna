@@ -46,12 +46,24 @@ export class PromptBuilder {
     private readonly systemPrompt: string,
     /** Configurable budget for injected document context. */
     contextLimits?: ContextLimits,
+    /**
+     * Supplies an extra system-prompt directive (assistant persona:
+     * name, personality, response length, language). Read at build time
+     * so personalization changes affect the next response without a
+     * restart. Returns "" when there is nothing to add.
+     */
+    private readonly personaProvider?: () => string,
   ) {
     this.formatter = new ContextFormatter(contextLimits);
   }
 
   build({ history, memory = [], context = [] }: PromptInput): AiChatMessage[] {
     let system = this.systemPrompt;
+
+    const persona = this.personaProvider?.().trim();
+    if (persona) {
+      system += `\n\n${persona}`;
+    }
 
     const documentContext = this.formatter.buildDocumentContext(context);
     if (documentContext) {

@@ -1,9 +1,18 @@
 import type { ReactNode } from "react";
 
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { PageContainer } from "@/layouts/PageContainer";
 import { cn } from "@/lib/utils";
+import {
+  AVATAR_ICONS,
+  AVATAR_OPTIONS,
+  LANGUAGE_OPTIONS,
+  PERSONALITY_OPTIONS,
+  RESPONSE_LENGTH_OPTIONS,
+} from "@/personalization/personalization.types";
+import { usePersonalizationStore } from "@/store/personalization/personalization.store";
 import {
   ACCENT_OPTIONS,
   DENSITY_OPTIONS,
@@ -188,11 +197,85 @@ function SliderRow({
   );
 }
 
+/** A labelled row with a free-text input (committed on change). */
+function TextRow({
+  label,
+  description,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: string;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 py-4">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Input
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 w-64 rounded-lg"
+      />
+    </div>
+  );
+}
+
+/** A labelled row for picking one of the built-in avatar icons. */
+function AvatarRow({
+  value,
+  onChange,
+}: {
+  value: (typeof AVATAR_OPTIONS)[number];
+  onChange: (value: (typeof AVATAR_OPTIONS)[number]) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 py-4">
+      <div>
+        <p className="text-sm font-medium">Avatar</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Choose a built-in icon for your assistant.
+        </p>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {AVATAR_OPTIONS.map((avatar) => {
+          const Icon = AVATAR_ICONS[avatar];
+          const active = value === avatar;
+          return (
+            <button
+              key={avatar}
+              type="button"
+              aria-label={avatar}
+              onClick={() => onChange(avatar)}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+                active
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border/70 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /**
- * Settings page. The Appearance and AI sections are live: every control
- * applies immediately and persists locally through its store.
+ * Settings page. The Assistant, Appearance, and AI sections are live:
+ * every control applies immediately and persists locally through its store.
  */
 export function SettingsPage() {
+  const persona = usePersonalizationStore();
+
   const theme = useAppearanceStore((state) => state.theme);
   const accent = useAppearanceStore((state) => state.accent);
   const fontSize = useAppearanceStore((state) => state.fontSize);
@@ -209,6 +292,61 @@ export function SettingsPage() {
   return (
     <PageContainer title="Settings" description="Configure how Luna looks and behaves.">
       <div className="mx-auto max-w-3xl space-y-8">
+        <section className="rounded-xl border border-border/70 bg-card/50 px-5">
+          <h2 className="pt-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Assistant
+          </h2>
+          <TextRow
+            label="Assistant name"
+            description="What your assistant is called throughout Luna."
+            value={persona.assistantName}
+            placeholder="Luna"
+            onChange={persona.updateAssistantName}
+          />
+          <Separator />
+          <AvatarRow value={persona.avatar} onChange={persona.updateAvatar} />
+          <Separator />
+          <TextRow
+            label="Welcome message"
+            description="Shown on the empty chat screen."
+            value={persona.welcomeMessage}
+            placeholder="How can I help you today?"
+            onChange={persona.updateWelcomeMessage}
+          />
+          <Separator />
+          <OptionRow
+            label="Personality"
+            description="The tone your assistant uses in replies."
+            options={PERSONALITY_OPTIONS}
+            value={persona.personality}
+            onChange={persona.updatePersonality}
+          />
+          <Separator />
+          <OptionRow
+            label="Response length"
+            description="How long replies should generally be."
+            options={RESPONSE_LENGTH_OPTIONS}
+            value={persona.responseLength}
+            onChange={persona.updateResponseLength}
+          />
+          <Separator />
+          <TextRow
+            label="Default conversation starter"
+            description="A one-tap prompt offered on the empty chat screen."
+            value={persona.conversationStarter}
+            placeholder="e.g. Summarize my day"
+            onChange={persona.updateConversationStarter}
+          />
+          <Separator />
+          <SelectRow
+            label="Language"
+            description="Preferred reply language (multilingual support is evolving)."
+            options={LANGUAGE_OPTIONS}
+            value={persona.language}
+            onChange={persona.updateLanguage}
+          />
+        </section>
+
         <section className="rounded-xl border border-border/70 bg-card/50 px-5">
           <h2 className="pt-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             General

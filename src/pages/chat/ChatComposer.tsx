@@ -5,6 +5,7 @@ import { ArrowUp, FileText, ImageIcon, Loader2, MessageSquare, Square, X } from 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat/chat.store";
+import { usePersonalizationStore } from "@/store/personalization/personalization.store";
 
 const MAX_HEIGHT_PX = 200;
 
@@ -23,6 +24,7 @@ export function ChatComposer() {
   const setDocumentMode = useChatStore((state) => state.setDocumentMode);
   const currentImage = useChatStore((state) => state.currentImage);
   const setImageContext = useChatStore((state) => state.setImageContext);
+  const assistantName = usePersonalizationStore((state) => state.assistantName) || "Luna";
 
   const generating = status === "waiting" || status === "streaming";
   const stopping = status === "stopping";
@@ -95,7 +97,7 @@ export function ChatComposer() {
               resize();
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Message Luna…"
+            placeholder={`Message ${assistantName}…`}
             className="max-h-50 min-h-10 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
           />
           {generating ? (
@@ -129,7 +131,7 @@ export function ChatComposer() {
             ? "Ask follow-up questions about this image; answers use its visual analysis."
             : documentMode
               ? "Answers are grounded in your uploaded documents, with citations."
-              : "Luna runs locally with Ollama and can make mistakes."}
+              : `${assistantName} runs locally with Ollama and can make mistakes.`}
         </p>
       </div>
     </div>

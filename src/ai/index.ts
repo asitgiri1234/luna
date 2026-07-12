@@ -19,6 +19,7 @@ import type { ExecutionRequest } from "./tools/types";
 import { type AutomationSystem, createAutomationSystem } from "@/automation";
 import { documentService } from "@/documents/document.service";
 import { fileService } from "@/files/file.service";
+import { personalizationService } from "@/personalization/personalization.service";
 
 /**
  * # AI core composition root
@@ -96,7 +97,9 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
   const conversation = new ConversationManager({
     provider,
     config,
-    promptBuilder: new PromptBuilder(config.systemPrompt),
+    promptBuilder: new PromptBuilder(config.systemPrompt, undefined, () =>
+      personalizationService.getPersonaDirective(),
+    ),
     contextManager: new SlidingWindowContextManager(),
     repository: conversationRepository,
     memory,

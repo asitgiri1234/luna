@@ -1,4 +1,5 @@
 import lunaLogo from "@/assets/luna-logo.svg";
+import { usePersonalizationStore } from "@/store/personalization/personalization.store";
 
 import { WindowControls } from "./WindowControls";
 
@@ -7,12 +8,14 @@ import { WindowControls } from "./WindowControls";
  * region; interactive children opt out via `app-no-drag`.
  */
 export function TitleBar() {
+  const assistantName = usePersonalizationStore((state) => state.assistantName);
+
   return (
     <header className="app-drag flex h-10 shrink-0 items-center justify-between border-b border-border/60 bg-sidebar pl-4 select-none">
       <div className="flex items-center gap-2">
         <img src={lunaLogo} alt="" className="h-4 w-4" draggable={false} />
         <span className="text-xs font-medium tracking-wide text-muted-foreground">
-          Luna
+          {assistantName || "Luna"}
         </span>
       </div>
       <WindowControls />
