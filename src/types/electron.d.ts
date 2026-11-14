@@ -54,6 +54,7 @@ import type {
   PermissionStatus,
   PermissionUsedEvent,
 } from "@shared/permissions";
+import type { ShellSnapshot } from "@shared/shell";
 
 /**
  * Renderer-side declaration of the API exposed by `electron/preload.ts`
@@ -164,6 +165,12 @@ export interface LunaActivityApi {
   clear: () => Promise<DbResult<null>>;
 }
 
+export interface LunaShellApi {
+  get: () => Promise<ShellSnapshot>;
+  setLaunchOnStartup: (enabled: boolean) => Promise<ShellSnapshot>;
+  setMinimizeToTray: (enabled: boolean) => Promise<ShellSnapshot>;
+}
+
 export interface LunaApi {
   window: LunaWindowApi;
   ai: LunaAiApi;
@@ -174,6 +181,7 @@ export interface LunaApi {
   documents: LunaDocumentsApi;
   permissions: LunaPermissionsApi;
   activity: LunaActivityApi;
+  shell: LunaShellApi;
   platform: NodeJS.Platform;
 }
 

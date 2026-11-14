@@ -39,7 +39,7 @@ dialog cancels the rest of the plan. Regenerate does **not** run the
 tool again. Remember / recall go through `MemoryExecutor`. An explicit
 save suppresses the passive "should I remember this?" card for that turn.
 
-## Point 2 — done (this change)
+## Point 2 — done (`59f0071`)
 
 The Privacy page used to only store Allowed / Disabled. Nothing checked
 the row, and `lastUsed` was never written.
@@ -68,9 +68,19 @@ refusal instead of quietly answering with no context. If the permission
 database itself cannot be read, the gate fails open and logs it, so a
 broken DB does not brick chat.
 
-## Still open
+## Point 3 — done (this change)
 
-3. **Settings that do nothing.** "Launch on startup" and "Minimize to tray" are uncontrolled switches. There is no tray and no Windows login item. About still says "Version 0.1.0 · Application shell preview". The sidebar profile is hardcoded "Asit / Free plan".
+Settings → General and the sidebar identity used to be placeholders.
+
+Launch on startup calls `app.setLoginItemSettings` from `electron/shell/shell.ts`. The choice is saved in the user-data directory next to `luna.db` (`shell.json`) and applied immediately, then again on the next launch. Default is off. An unpackaged run passes the app directory as the login-item argument (Vite starts Electron as `electron .`, so there is no main-script path on `argv`) so Windows does not start a bare Electron window; a packaged build registers `Luna.exe` with no extra arguments.
+
+Minimize to tray defaults on. While it is on, closing the window hides Luna and leaves it running. The tray icon offers Show and Quit (a left click also shows the window). Quit, and closing while the switch is off, exit the app — that off path is the old behavior. The tray is created and removed as the switch changes, so it does not linger after the setting is turned off. If the icon cannot be created, close still quits, so the process cannot be stranded with no window and no tray. A second launch focuses the existing window instead of starting another process, including when Windows starts Luna at sign-in while it is already in the tray.
+
+About reads `app.getVersion()` and no longer says "preview".
+
+The sidebar shows the assistant name from personalization, falling back to "Luna", and that assistant's avatar. The hardcoded "Asit" and "Free plan" are gone.
+
+## Still open
 
 4. **Long chats are truncated, not summarized.** `SlidingWindowContextManager` drops old messages. The planned summarizer was never added.
 
@@ -89,3 +99,5 @@ Tool *definitions* in `src/ai/tools/registry/definitions.ts` are still `Placehol
 - Privacy gate: `electron/permissions/permission.gate.ts`
 - Which automation call maps to which toggle: `electron/permissions/permission.policy.ts`
 - Privacy UI: `src/pages/privacy/PrivacyPage.tsx`
+- Shell (login item, tray, close-to-tray): `electron/shell/shell.ts`
+- Settings page: `src/pages/settings/SettingsPage.tsx`

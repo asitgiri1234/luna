@@ -14,8 +14,10 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { AVATAR_ICONS } from "@/personalization/personalization.types";
 import { useAppearanceStore } from "@/store/appearance/appearance.store";
 import { useConversationStore } from "@/store/conversations/conversation.store";
+import { usePersonalizationStore } from "@/store/personalization/personalization.store";
 
 import { SidebarConversations } from "./SidebarConversations";
 import { SidebarNavItem } from "./SidebarNavItem";
@@ -34,6 +36,10 @@ export function Sidebar() {
   const startNew = useConversationStore((state) => state.startNew);
   const collapsed = useAppearanceStore((state) => state.sidebarCollapsed);
   const updateSidebar = useAppearanceStore((state) => state.updateSidebar);
+  const assistantName = usePersonalizationStore((state) => state.assistantName);
+  const avatar = usePersonalizationStore((state) => state.avatar);
+  const name = assistantName.trim() || "Luna";
+  const AvatarIcon = AVATAR_ICONS[avatar];
 
   return (
     <aside
@@ -92,18 +98,16 @@ export function Sidebar() {
         {!collapsed && <Separator className="mb-3 bg-sidebar-border" />}
         <div
           className={cn(
-            "flex items-center gap-3 rounded-xl transition-colors hover:bg-sidebar-accent",
+            "flex items-center gap-3 rounded-xl",
             collapsed ? "p-1" : "px-2 py-2",
           )}
+          title={name}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 text-xs font-semibold text-white">
-            A
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 text-white">
+            <AvatarIcon className="h-4 w-4" />
           </div>
           {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">Asit</p>
-              <p className="truncate text-xs text-muted-foreground">Free plan</p>
-            </div>
+            <p className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">{name}</p>
           )}
         </div>
       </div>

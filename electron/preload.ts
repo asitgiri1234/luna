@@ -70,6 +70,7 @@ import {
   type PermissionStatus,
   type PermissionUsedEvent,
 } from "../shared/permissions";
+import { SHELL_CHANNELS, type ShellSnapshot } from "../shared/shell";
 
 /**
  * The only bridge between the renderer and the main process.
@@ -260,6 +261,13 @@ const lunaApi = {
     list: (query?: ActivityQuery): Promise<DbResult<ActivityRecord[]>> =>
       ipcRenderer.invoke(ACTIVITY_CHANNELS.list, query ?? {}),
     clear: (): Promise<DbResult<null>> => ipcRenderer.invoke(ACTIVITY_CHANNELS.clear),
+  },
+  shell: {
+    get: (): Promise<ShellSnapshot> => ipcRenderer.invoke(SHELL_CHANNELS.get),
+    setLaunchOnStartup: (enabled: boolean): Promise<ShellSnapshot> =>
+      ipcRenderer.invoke(SHELL_CHANNELS.setLaunchOnStartup, enabled),
+    setMinimizeToTray: (enabled: boolean): Promise<ShellSnapshot> =>
+      ipcRenderer.invoke(SHELL_CHANNELS.setMinimizeToTray, enabled),
   },
   platform: process.platform,
 };

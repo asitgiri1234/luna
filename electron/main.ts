@@ -22,6 +22,14 @@ import { registerDocumentsIpc } from "./ipc/documents.ipc";
 import { registerFilesIpc } from "./ipc/files.ipc";
 import { registerMemoryIpc } from "./ipc/memory.ipc";
 import { registerPermissionsIpc } from "./ipc/permissions.ipc";
+import { registerShellIpc } from "./ipc/shell.ipc";
+import {
+  attachShellWindow,
+  initShell,
+  markShellQuitting,
+  setShellWindowOpener,
+  showShellWindow,
+} from "./shell/shell";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -82,6 +90,8 @@ function createMainWindow(): void {
     mainWindow?.webContents.send("window:maximized-changed", false);
   });
 
+  attachShellWindow(mainWindow);
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -116,36 +126,56 @@ function registerWindowControls(): void {
   ipcMain.handle("window:is-maximized", () => mainWindow?.isMaximized() ?? false);
 }
 
-app.whenReady().then(() => {
-  // Composition root for the main process: build dependencies once and
-  // inject them downward. No module reaches for a global instance.
-  if (VITE_DEV_SERVER_URL) setLogLevel("debug");
-  const log = createLogger("main");
+// Set before the single-instance lock and the login item so Windows
+// attributes toasts, the Run key, and the instance mutex to Luna rather
+// than to electron.exe. Must match the installer's appId.
+if (process.platform === "win32") app.setAppUserModelId("com.asitgiri.luna");
 
-  // Required for Windows toast notifications (reminders) to attribute
-  // correctly; must match the installer's appId.
-  if (process.platform === "win32") app.setAppUserModelId("com.asitgiri.luna");
-
-  registerWindowControls();
-  registerAiIpc(new AiController(createDefaultProviderRegistry()));
-  initDatabase();
-  registerConversationsIpc(new ConversationsController());
-  registerMemoryIpc(new MemoryController());
-  registerAutomationIpc();
-  registerFilesIpc(new FilesController());
-  registerDocumentsIpc(new DocumentsController());
-  registerPermissionsIpc(new PermissionsController());
-  registerActivityIpc(new ActivityController());
-  pruneReminders();
-  initReminders();
-  createMainWindow();
-  log.info("app ready", { dev: Boolean(VITE_DEV_SERVER_URL) });
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+// A second launch (the shortcut, or Windows starting Luna at sign-in
+// while a tray instance is already running) focuses the existing window
+// instead of opening another process. `exit` rather than `quit` because
+// quit before ready is ignored.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.exit(0);
+} else {
+  setShellWindowOpener(createMainWindow);
+  app.on("second-instance", () => {
+    showShellWindow();
   });
-});
+  app.on("before-quit", () => {
+    markShellQuitting();
+  });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
+  app.whenReady().then(() => {
+    // Composition root for the main process: build dependencies once and
+    // inject them downward. No module reaches for a global instance.
+    if (VITE_DEV_SERVER_URL) setLogLevel("debug");
+    const log = createLogger("main");
+
+    initShell();
+    registerShellIpc();
+    registerWindowControls();
+    registerAiIpc(new AiController(createDefaultProviderRegistry()));
+    initDatabase();
+    registerConversationsIpc(new ConversationsController());
+    registerMemoryIpc(new MemoryController());
+    registerAutomationIpc();
+    registerFilesIpc(new FilesController());
+    registerDocumentsIpc(new DocumentsController());
+    registerPermissionsIpc(new PermissionsController());
+    registerActivityIpc(new ActivityController());
+    pruneReminders();
+    initReminders();
+    createMainWindow();
+    log.info("app ready", { dev: Boolean(VITE_DEV_SERVER_URL) });
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    });
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+  });
+}

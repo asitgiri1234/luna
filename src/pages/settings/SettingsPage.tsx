@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -31,24 +31,7 @@ import {
   TOP_P_RANGE,
 } from "@/ai/settings/ai-settings.types";
 import { useAISettingsStore } from "@/store/ai-settings/ai-settings.store";
-
-interface SettingRowProps {
-  label: string;
-  description: string;
-  defaultChecked?: boolean;
-}
-
-function SettingRow({ label, description, defaultChecked }: SettingRowProps) {
-  return (
-    <div className="flex items-center justify-between gap-6 py-4">
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-      </div>
-      <Switch defaultChecked={defaultChecked} />
-    </div>
-  );
-}
+import { useShellStore } from "@/store/shell/shell.store";
 
 /** A labelled row whose control is a segmented set of exclusive options. */
 function OptionRow<T extends string>({
@@ -98,11 +81,13 @@ function ToggleRow({
   label,
   description,
   checked,
+  disabled,
   onChange,
 }: {
   label: string;
   description: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
@@ -111,7 +96,7 @@ function ToggleRow({
         <p className="text-sm font-medium">{label}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
     </div>
   );
 }
@@ -270,11 +255,27 @@ function AvatarRow({
 }
 
 /**
- * Settings page. The Assistant, Appearance, and AI sections are live:
- * every control applies immediately and persists locally through its store.
+ * Settings page. Assistant, Appearance, and AI apply immediately through
+ * their stores. Launch on startup and minimize to tray go through the
+ * main-process shell (login item and tray) and persist in the user-data
+ * directory.
  */
 export function SettingsPage() {
   const persona = usePersonalizationStore();
+
+  const launchOnStartup = useShellStore((state) => state.launchOnStartup);
+  const minimizeToTray = useShellStore((state) => state.minimizeToTray);
+  const version = useShellStore((state) => state.version);
+  const shellStatus = useShellStore((state) => state.status);
+  const shellError = useShellStore((state) => state.error);
+  const refreshShell = useShellStore((state) => state.refresh);
+  const setLaunchOnStartup = useShellStore((state) => state.setLaunchOnStartup);
+  const setMinimizeToTray = useShellStore((state) => state.setMinimizeToTray);
+  const shellReady = shellStatus === "ready";
+
+  useEffect(() => {
+    void refreshShell();
+  }, [refreshShell]);
 
   const theme = useAppearanceStore((state) => state.theme);
   const accent = useAppearanceStore((state) => state.accent);
@@ -351,16 +352,31 @@ export function SettingsPage() {
           <h2 className="pt-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             General
           </h2>
-          <SettingRow
+          <ToggleRow
             label="Launch on startup"
             description="Start Luna automatically when you sign in to Windows."
+            checked={launchOnStartup}
+            disabled={!shellReady}
+            onChange={(checked) => {
+              void setLaunchOnStartup(checked);
+            }}
           />
           <Separator />
-          <SettingRow
+          <ToggleRow
             label="Minimize to tray"
             description="Keep Luna running in the system tray when the window is closed."
-            defaultChecked
+            checked={minimizeToTray}
+            disabled={!shellReady}
+            onChange={(checked) => {
+              void setMinimizeToTray(checked);
+            }}
           />
+          {shellError && <p className="pb-4 text-xs text-destructive">{shellError}</p>}
+          {shellStatus === "unavailable" && (
+            <p className="pb-4 text-xs text-muted-foreground">
+              These options need the Luna desktop app.
+            </p>
+          )}
         </section>
 
         <section className="rounded-xl border border-border/70 bg-card/50 px-5">
@@ -502,7 +518,7 @@ export function SettingsPage() {
           </h2>
           <p className="mt-3 text-sm">Luna</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Version 0.1.0 · Application shell preview
+            {version ? `Version ${version}` : "Version …"}
           </p>
         </section>
       </div>
