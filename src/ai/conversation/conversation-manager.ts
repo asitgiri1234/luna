@@ -523,12 +523,19 @@ export class ConversationManager {
     const prompt = promptBuilder.build({ history, memory, context, actions });
 
     const model = resolveModel(config.model);
-    const fitted = contextManager.fitToWindow(prompt, {
+    const fitted = await contextManager.fitToWindow(prompt, {
       // The configured context window caps how much history is sent, never
       // exceeding what the model itself supports.
       contextLength: Math.min(config.contextWindow || model.contextLength, model.contextLength),
       reservedForResponse: config.maxTokens,
     });
+
+    // Summarizing can take a model round-trip. Stop and thread switches
+    // that landed during it must not start a reply for the old turn.
+    if (epoch !== this.epoch || this.isStopping()) {
+      if (epoch === this.epoch) this.abandonWaitingReply();
+      return;
+    }
 
     this.handle = provider.stream(
       {

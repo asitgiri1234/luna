@@ -1,6 +1,7 @@
 import { createLogger, setLogLevel } from "@shared/logger";
 
 import { type AiConfig, defaultAiConfig } from "./config/ai.config";
+import { SummarizingContextManager } from "./context/summarizing-context-manager";
 import { SlidingWindowContextManager } from "./context/sliding-window";
 import { ConversationManager } from "./conversation/conversation-manager";
 import type { ConversationRepository } from "./conversation/conversation-repository";
@@ -19,6 +20,7 @@ import type { ExecutionRequest } from "./tools/types";
 import { type AutomationSystem, createAutomationSystem } from "@/automation";
 import { documentService } from "@/documents/document.service";
 import { fileService } from "@/files/file.service";
+import { permissionService } from "@/permissions/permission.service";
 import { personalizationService } from "@/personalization/personalization.service";
 
 /**
@@ -104,7 +106,25 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     promptBuilder: new PromptBuilder(config.systemPrompt, undefined, () =>
       personalizationService.getPersonaDirective(),
     ),
-    contextManager: new SlidingWindowContextManager(),
+    contextManager: new SummarizingContextManager({
+      provider,
+      getModel: () => config.model,
+      fallback: new SlidingWindowContextManager(),
+      // A summary calls the model. When Local AI is off, skip that call
+      // and let the sliding window drop the overflow. A status read that
+      // fails is treated as allowed, matching the main-process gate; the
+      // gate still blocks the call itself, and a failed summary falls back.
+      isLocalAiAllowed: async () => {
+        try {
+          return (await permissionService.status("local-ai")) === "allowed";
+        } catch (error) {
+          createLogger("ai:context").warn("could not read Local AI permission", {
+            error: String(error),
+          });
+          return true;
+        }
+      },
+    }),
     repository: conversationRepository,
     memory,
     automation: automation.service,

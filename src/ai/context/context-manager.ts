@@ -4,15 +4,14 @@ import type { AiChatMessage } from "@/ai/types";
  * # Context manager interface
  *
  * Owns the question "what fits in the model's context window?".
- * Consumers (the conversation manager today, memory retrieval and file
- * understanding later) describe the window; the context manager decides
- * what survives.
+ * Consumers (the conversation manager today) describe the window; the
+ * context manager decides what survives.
  *
- * ## Extension point
- * The summarization milestone adds an implementation whose
- * `fitToWindow` compresses overflow into a summary message instead of
- * dropping it. Because consumers depend on this interface, that swap
- * happens in the composition root only.
+ * `fitToWindow` is async because a summary is a model call. The
+ * summarizing implementation compresses overflow into one summary
+ * message. `SlidingWindowContextManager` drops that overflow instead,
+ * and stays as the fallback when a summary cannot be produced. The
+ * concrete manager is chosen in the composition root.
  */
 
 export interface ContextWindow {
@@ -30,8 +29,9 @@ export interface ContextManager {
   estimateMessages(messages: AiChatMessage[]): number;
 
   /**
-   * Returns the subset of `messages` that fits the window. Must always
-   * keep the leading system message (if any) and the final message.
+   * Returns messages that fit the window. Must always keep the leading
+   * system message (if any) and the final message. When the conversation
+   * already fits, the same list comes back unchanged.
    */
-  fitToWindow(messages: AiChatMessage[], window: ContextWindow): AiChatMessage[];
+  fitToWindow(messages: AiChatMessage[], window: ContextWindow): Promise<AiChatMessage[]>;
 }

@@ -10,6 +10,10 @@ import type { ContextManager, ContextWindow } from "./context-manager";
  * (good enough for window budgeting; a real tokenizer can replace it
  * behind the same interface) and, when the conversation outgrows the
  * window, drops the oldest non-system turns first.
+ *
+ * This is also the fallback when summarization cannot run (the summary
+ * call failed, or Local AI is turned off). Dropping history is worse
+ * than summarizing it, and still better than failing the reply.
  */
 
 const CHARS_PER_TOKEN = 4;
@@ -30,7 +34,7 @@ export class SlidingWindowContextManager implements ContextManager {
     );
   }
 
-  fitToWindow(messages: AiChatMessage[], window: ContextWindow): AiChatMessage[] {
+  async fitToWindow(messages: AiChatMessage[], window: ContextWindow): Promise<AiChatMessage[]> {
     const budget = window.contextLength - window.reservedForResponse;
     if (this.estimateMessages(messages) <= budget) return messages;
 
