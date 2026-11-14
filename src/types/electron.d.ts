@@ -52,6 +52,7 @@ import type {
   PermissionId,
   PermissionRecord,
   PermissionStatus,
+  PermissionUsedEvent,
 } from "@shared/permissions";
 
 /**
@@ -155,6 +156,7 @@ export interface LunaPermissionsApi {
   grant: (id: PermissionId) => Promise<PermissionDbResult<PermissionRecord>>;
   revoke: (id: PermissionId) => Promise<PermissionDbResult<PermissionRecord>>;
   status: (id: PermissionId) => Promise<PermissionDbResult<PermissionStatus>>;
+  onUsed: (callback: (event: PermissionUsedEvent) => void) => () => void;
 }
 
 export interface LunaActivityApi {

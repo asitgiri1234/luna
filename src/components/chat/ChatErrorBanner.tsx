@@ -39,6 +39,10 @@ const presentations: Record<AiErrorCode, ErrorPresentation> = {
     title: "Generation stopped",
     description: "The response was cancelled before it finished.",
   },
+  "permission-disabled": {
+    title: "That's turned off",
+    description: "Enable it on the Privacy page, then try again.",
+  },
   unknown: {
     title: "Something went wrong",
     description: "An unexpected error interrupted the response.",
@@ -63,7 +67,9 @@ export function ChatErrorBanner({ error }: { error: ChatError }) {
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{presentation.title}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{presentation.description}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {error.code === "permission-disabled" ? error.message : presentation.description}
+          </p>
           {presentation.command && (
             <code className="mt-2 inline-block rounded-md bg-secondary px-2.5 py-1 font-mono text-xs">
               {presentation.command}

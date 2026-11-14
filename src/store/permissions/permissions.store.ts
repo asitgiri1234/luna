@@ -58,3 +58,14 @@ export const usePermissionsStore = create<PermissionsState>()((set) => ({
     }
   },
 }));
+
+/** Keep "Last used" current after a capability runs, without a full reload. */
+if (typeof window !== "undefined" && window.luna?.permissions.onUsed) {
+  window.luna.permissions.onUsed(({ id, lastUsed }) => {
+    usePermissionsStore.setState((state) => ({
+      permissions: state.permissions.map((permission) =>
+        permission.id === id ? { ...permission, lastUsed } : permission,
+      ),
+    }));
+  });
+}

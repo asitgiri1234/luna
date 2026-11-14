@@ -6,6 +6,8 @@ import {
 } from "@/ai/tools/types";
 import type { MemoryRepository } from "@/ai/memory/memory-repository";
 import { isMemoryCategory, type MemoryCategory } from "@shared/memory";
+import { permissionDeniedMessage } from "@shared/permissions";
+import { permissionService } from "@/permissions/permission.service";
 
 import type { ExecutorContext, ToolExecutor } from "../executor/types";
 
@@ -22,6 +24,13 @@ export class MemoryExecutor implements ToolExecutor {
   constructor(private readonly memories: MemoryRepository) {}
 
   async execute(params: ToolParameters, _context: ExecutorContext): Promise<ToolResult> {
+    try {
+      const status = await permissionService.status("memory");
+      if (status !== "allowed") return toolFailed(this.name, permissionDeniedMessage("memory"));
+    } catch (error) {
+      return toolFailed(this.name, error instanceof Error ? error.message : String(error));
+    }
+
     const action = String(params.action ?? "").trim().toLowerCase();
     const value = String(params.value ?? "").trim();
 

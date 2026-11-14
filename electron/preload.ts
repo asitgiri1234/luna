@@ -68,6 +68,7 @@ import {
   type PermissionId,
   type PermissionRecord,
   type PermissionStatus,
+  type PermissionUsedEvent,
 } from "../shared/permissions";
 
 /**
@@ -248,6 +249,12 @@ const lunaApi = {
       ipcRenderer.invoke(PERMISSION_CHANNELS.revoke, id),
     status: (id: PermissionId): Promise<DbResult<PermissionStatus>> =>
       ipcRenderer.invoke(PERMISSION_CHANNELS.status, id),
+    onUsed: (callback: (event: PermissionUsedEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, value: PermissionUsedEvent): void =>
+        callback(value);
+      ipcRenderer.on(PERMISSION_CHANNELS.used, listener);
+      return () => ipcRenderer.off(PERMISSION_CHANNELS.used, listener);
+    },
   },
   activity: {
     list: (query?: ActivityQuery): Promise<DbResult<ActivityRecord[]>> =>

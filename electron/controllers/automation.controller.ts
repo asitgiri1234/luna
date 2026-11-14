@@ -5,6 +5,12 @@ import {
 } from "../../shared/automation";
 import { createLogger } from "../../shared/logger";
 import { activityService } from "../activity/activity.service";
+import { automationPermission } from "../permissions/permission.policy";
+import {
+  PermissionDenied,
+  assertPermission,
+  recordPermissionUse,
+} from "../permissions/permission.gate";
 
 /**
  * # Automation controller (main process)
@@ -35,12 +41,22 @@ export async function runAutomation<T>(
   fn: () => T | Promise<T>,
 ): Promise<AutomationResult<T>> {
   const startedAt = Date.now();
+  const permission = automationPermission(operation);
   try {
+    if (permission) {
+      assertPermission(permission);
+      recordPermissionUse(permission);
+    }
     const data = await fn();
     log.info("automation ok", { operation, ms: Date.now() - startedAt });
     recordActivity(operation, "success");
     return { ok: true, data };
   } catch (error) {
+    if (error instanceof PermissionDenied) {
+      log.info("automation blocked", { operation, permission: error.permissionId });
+      recordActivity(operation, "failed");
+      return { ok: false, code: "unknown", message: error.message };
+    }
     const code = error instanceof AutomationError ? error.code : "unknown";
     const message = error instanceof Error ? error.message : String(error);
     log.warn("automation failed", { operation, code, message, ms: Date.now() - startedAt });

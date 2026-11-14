@@ -121,6 +121,23 @@ export function isPermissionId(value: string): value is PermissionId {
   return (PERMISSION_IDS as readonly string[]).includes(value);
 }
 
+/** Shown when a capability is used while its Privacy toggle is off. */
+export function permissionDeniedMessage(id: PermissionId): string {
+  const name = PERMISSION_CATALOG.find((entry) => entry.id === id)?.name ?? "That capability";
+  return `${name} is turned off in Privacy. Turn it on to use it.`;
+}
+
+/** True when `error` is a Privacy-toggle refusal (any capability). */
+export function isPermissionDeniedError(error: unknown): error is Error {
+  return error instanceof Error && error.message.includes("turned off in Privacy");
+}
+
+/** Pushed to the renderer after a capability is actually used. */
+export interface PermissionUsedEvent {
+  id: PermissionId;
+  lastUsed: number;
+}
+
 // ---------------------------------------------------------------------------
 // IPC channels
 // ---------------------------------------------------------------------------
@@ -130,4 +147,6 @@ export const PERMISSION_CHANNELS = {
   grant: "permissions:grant",
   revoke: "permissions:revoke",
   status: "permissions:status",
+  /** Main → renderer. Payload is `PermissionUsedEvent`. */
+  used: "permissions:used",
 } as const;

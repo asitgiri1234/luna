@@ -10,6 +10,11 @@ import {
 } from "../../shared/ai";
 import { createLogger } from "../../shared/logger";
 import type { ProviderRegistry } from "../backend/providers/registry";
+import {
+  PermissionDenied,
+  assertPermission,
+  recordPermissionUse,
+} from "../permissions/permission.gate";
 
 /**
  * # AI controller (main process)
@@ -50,6 +55,8 @@ export class AiController {
     let tokens = 0;
 
     try {
+      assertPermission("local-ai");
+      recordPermissionUse("local-ai");
       const provider = this.providers.get(providerId);
       for await (const token of provider.stream(request, controller.signal)) {
         tokens += 1;
@@ -61,6 +68,9 @@ export class AiController {
       if (error instanceof CancelledByUser || controller.signal.aborted) {
         emit({ requestId, type: "done", cancelled: true });
         log.info("generation cancelled", { requestId, tokens });
+      } else if (error instanceof PermissionDenied) {
+        emit({ requestId, type: "error", code: "permission-disabled", message: error.message });
+        log.info("generation blocked", { requestId, permission: error.permissionId });
       } else {
         const aiError = toAiError(error);
         emit({ requestId, type: "error", code: aiError.code, message: aiError.message });

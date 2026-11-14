@@ -1,5 +1,6 @@
 import type { RetrievedChunk, RetrieveQuery } from "@shared/documents";
 import type { Logger } from "@shared/logger";
+import { isPermissionDeniedError } from "@shared/permissions";
 
 import type { RetrievedContextChunk } from "@/ai/prompt/prompt-context";
 
@@ -68,6 +69,7 @@ export class DocumentChatService implements DocumentChatPort {
     try {
       chunks = await this.retrieve({ query, k: this.options.k, minScore: this.options.minScore });
     } catch (error) {
+      if (isPermissionDeniedError(error)) throw error;
       this.logger.warn("document retrieval failed", { error: String(error) });
     }
 

@@ -23,6 +23,9 @@ import { FileRepository } from "../files/file.repository";
 import { resolveStorage } from "../files/workspace";
 import type { WebContents } from "electron";
 
+import { assertPermission, recordPermissionUse } from "../permissions/permission.gate";
+import type { PermissionId } from "../../shared/permissions";
+
 /**
  * # Documents controller (main process)
  *
@@ -34,6 +37,12 @@ import type { WebContents } from "electron";
  */
 
 const log = createLogger("main:documents");
+
+/** Gate one or more Privacy toggles, then stamp each as used. */
+function allow(ids: PermissionId[]): void {
+  for (const id of ids) assertPermission(id);
+  for (const id of ids) recordPermissionUse(id);
+}
 
 function run<T>(operation: string, fn: () => T | Promise<T>): Promise<DocResult<T>> {
   return Promise.resolve()
@@ -86,6 +95,7 @@ export class DocumentsController {
   /** Parse → normalize → chunk → store for one uploaded file. */
   async process(input: ProcessDocumentInput): Promise<DocResult<DocumentRecord>> {
     const result = await run("process", async () => {
+      allow(["documents"]);
       const file = this.files.get(input.sourceFileId);
       if (!file) throw new DocumentError("not-found", "That file no longer exists.");
       if (!isDocumentKind(file.type)) {
@@ -150,13 +160,14 @@ export class DocumentsController {
 
   /** Query → Top-K relevant chunks (used by document chat). */
   async retrieve(input: RetrieveQuery): Promise<DocResult<RetrievedChunk[]>> {
-    const result = await run("retrieve", () =>
-      this.retriever.retrieve(input.query, {
+    const result = await run("retrieve", () => {
+      allow(["documents", "local-ai"]);
+      return this.retriever.retrieve(input.query, {
         k: input.k,
         documentId: input.documentId,
         minScore: input.minScore,
-      }),
-    );
+      });
+    });
     if (result.ok) {
       activityService.logActivity({
         type: "document-chat",
@@ -169,42 +180,49 @@ export class DocumentsController {
 
   /** OCR one image into a document, streaming progress to the sender. */
   ocrExtract(sender: WebContents, imageId: string): Promise<DocResult<DocumentRecord>> {
-    return run("ocr-extract", () =>
-      this.ocr.extractText(imageId, (progress) => {
+    return run("ocr-extract", () => {
+      allow(["documents"]);
+      return this.ocr.extractText(imageId, (progress) => {
         if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.ocrProgress, progress);
-      }),
-    );
+      });
+    });
   }
 
   /** OCR several images (background), streaming progress to the sender. */
   ocrExtractBatch(sender: WebContents, imageIds: string[]): Promise<DocResult<DocumentRecord[]>> {
-    return run("ocr-extract-batch", () =>
-      this.ocr.extractBatch(imageIds, (progress) => {
+    return run("ocr-extract-batch", () => {
+      allow(["documents"]);
+      return this.ocr.extractBatch(imageIds, (progress) => {
         if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.ocrProgress, progress);
-      }),
-    );
+      });
+    });
   }
 
   /** Analyze one image with the vision model, streaming progress. */
   visionAnalyze(sender: WebContents, imageId: string): Promise<DocResult<VisionAnalysis>> {
-    return run("vision-analyze", () =>
-      this.vision.analyzeImage(imageId, (progress) => {
+    return run("vision-analyze", () => {
+      allow(["documents", "local-ai"]);
+      return this.vision.analyzeImage(imageId, (progress) => {
         if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.visionProgress, progress);
-      }),
-    );
+      });
+    });
   }
 
   /** Analyze several images (background), streaming progress. */
   visionAnalyzeBatch(sender: WebContents, imageIds: string[]): Promise<DocResult<VisionAnalysis[]>> {
-    return run("vision-analyze-batch", () =>
-      this.vision.analyzeBatch(imageIds, (progress) => {
+    return run("vision-analyze-batch", () => {
+      allow(["documents", "local-ai"]);
+      return this.vision.analyzeBatch(imageIds, (progress) => {
         if (!sender.isDestroyed()) sender.send(DOCUMENT_CHANNELS.visionProgress, progress);
-      }),
-    );
+      });
+    });
   }
 
   /** The cached image analysis (or null). */
   visionGet(imageId: string): Promise<DocResult<VisionAnalysis | null>> {
-    return run("vision-get", () => this.vision.getAnalysis(imageId));
+    return run("vision-get", () => {
+      allow(["documents"]);
+      return this.vision.getAnalysis(imageId);
+    });
   }
 }

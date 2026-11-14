@@ -7,6 +7,7 @@ import {
 import { createLogger } from "../../shared/logger";
 import { getDb } from "../backend/db/client";
 import { reminders } from "../backend/db/schema";
+import { isPermissionAllowed } from "../permissions/permission.gate";
 import { notify } from "./system";
 
 /**
@@ -42,11 +43,15 @@ function schedule(record: ReminderRecord): void {
 
 async function fire(record: ReminderRecord): Promise<void> {
   clearTimer(record.id);
-  try {
-    notify("Reminder", record.title);
-  } catch (error) {
-    // A failed notification must not crash scheduling.
-    log.warn("reminder notification failed", { id: record.id, error: String(error) });
+  if (!isPermissionAllowed("notifications")) {
+    log.info("reminder suppressed; notifications are disabled", { id: record.id });
+  } else {
+    try {
+      notify("Reminder", record.title);
+    } catch (error) {
+      // A failed notification must not crash scheduling.
+      log.warn("reminder notification failed", { id: record.id, error: String(error) });
+    }
   }
   try {
     getDb().update(reminders).set({ notified: true }).where(eq(reminders.id, record.id)).run();

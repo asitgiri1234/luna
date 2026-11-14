@@ -5,6 +5,8 @@ import type {
 } from "@shared/memory";
 import type { Logger } from "@shared/logger";
 
+import { permissionService } from "@/permissions/permission.service";
+
 import type { MemoryExtractor } from "./memory-extractor";
 import type { MemoryRepository } from "./memory-repository";
 
@@ -84,7 +86,23 @@ export class MemoryService implements ConversationMemoryPort {
   }
 
   observeUserMessage(text: string, conversationId: string | null): void {
-    void this.mineCandidates(text, conversationId);
+    void this.mineIfAllowed(text, conversationId);
+  }
+
+  /** Skip the extractor entirely while Memory is turned off in Privacy. */
+  private async mineIfAllowed(text: string, conversationId: string | null): Promise<void> {
+    try {
+      const status = await permissionService.status("memory");
+      if (status !== "allowed") {
+        this.logger.debug("memory mining skipped; memory is disabled");
+        return;
+      }
+    } catch (error) {
+      // Fail closed: if the toggle can't be read, don't propose new facts.
+      this.logger.warn("could not read memory permission", { error: String(error) });
+      return;
+    }
+    await this.mineCandidates(text, conversationId);
   }
 
   /**

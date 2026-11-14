@@ -1,6 +1,7 @@
 import type { VisionAnalysis } from "@shared/documents";
 import type { FileRecord } from "@shared/files";
 import type { Logger } from "@shared/logger";
+import { isPermissionDeniedError } from "@shared/permissions";
 
 import type { RetrievedContextChunk } from "@/ai/prompt/prompt-context";
 
@@ -55,7 +56,10 @@ export class ImageChatService implements ImageChatPort {
     if (cached) return cached;
 
     const [analysis, file] = await Promise.all([
-      this.getVision(imageId).catch(() => null),
+      this.getVision(imageId).catch((error: unknown) => {
+        if (isPermissionDeniedError(error)) throw error;
+        return null;
+      }),
       this.getFile(imageId).catch(() => null),
     ]);
 

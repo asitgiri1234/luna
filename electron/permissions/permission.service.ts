@@ -13,11 +13,11 @@ import { PermissionRepository, type PermissionState } from "./permission.reposit
 /**
  * # PermissionService (main process)
  *
- * The Privacy Dashboard's brain. Merges the static permission catalog
+ * The Privacy Dashboard's service. Merges the static permission catalog
  * (names / descriptions / reasons) with the persisted state (status +
  * last-used), seeding defaults on first use. Enabling / disabling a
- * permission only records the user's choice — enforcement stays with each
- * capability's own code.
+ * permission records the user's choice. `permission.gate` blocks a
+ * capability and stamps last-used when that capability runs.
  */
 
 const log = createLogger("main:permissions");
@@ -51,9 +51,15 @@ export class PermissionService {
     return this.repository.get(id)?.status ?? this.definition(id).defaultStatus;
   }
 
-  /** Marks a capability as used now (for the "Last used" display). */
-  recordUsage(id: string): void {
-    if (isPermissionId(id)) this.repository.touch(id, Date.now());
+  /**
+   * Marks a capability as used now (for the "Last used" display).
+   * Returns the timestamp that was stored, or null for an unknown id.
+   */
+  recordUsage(id: string): number | null {
+    if (!isPermissionId(id)) return null;
+    const lastUsed = Date.now();
+    this.repository.touch(id, lastUsed);
+    return lastUsed;
   }
 
   private applyStatus(id: PermissionId, status: PermissionStatus): PermissionRecord {

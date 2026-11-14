@@ -5,6 +5,7 @@ import {
   type ClipboardReadResult,
 } from "../../shared/automation";
 import { createLogger } from "../../shared/logger";
+import { assertPermission, recordPermissionUse } from "../permissions/permission.gate";
 
 /**
  * # System automation (main process)
@@ -42,13 +43,16 @@ export function clipboardClear(): void {
 }
 
 export function notify(title: string, body: string): void {
+  assertPermission("notifications");
   if (!Notification.isSupported()) {
     throw new AutomationError("notification-failed", "Notifications are not supported here.");
   }
   try {
     new Notification({ title, body }).show();
+    recordPermissionUse("notifications");
     log.info("notification shown", { title });
   } catch (error) {
+    if (error instanceof AutomationError) throw error;
     throw new AutomationError("notification-failed", String(error));
   }
 }

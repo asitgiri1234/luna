@@ -18,6 +18,7 @@ import type { ConversationAutomationPort } from "@/automation/automation.service
 import type { ConversationMeta } from "@shared/conversations";
 import { PersistenceError } from "@shared/conversations";
 import type { Logger } from "@shared/logger";
+import { isPermissionDeniedError } from "@shared/permissions";
 
 import type { ConversationRepository } from "./conversation-repository";
 
@@ -470,8 +471,10 @@ export class ConversationManager {
 
     // Ground the turn: an image being discussed takes priority; otherwise
     // document mode. The chunks are attached to the pending assistant
-    // message before streaming begins.
+    // message before streaming begins. A Privacy refusal stops the turn
+    // and shows the reason instead of answering without that context.
     let context: RetrievedContextChunk[] = [];
+    try {
     if (this.imageContextId && this.deps.imageChat) {
       const grounding = await this.deps.imageChat.answerAboutImage(this.imageContextId, query);
       if (epoch !== this.epoch) return; // thread switched while retrieving
@@ -498,6 +501,15 @@ export class ConversationManager {
         noResults: grounding.noResults,
       });
       logger.debug("injected document context", { chunks: context.length });
+    }
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      if (isPermissionDeniedError(error)) {
+        this.abandonWaitingReply();
+        this.setState({ error: { code: "permission-disabled", message: error.message } });
+        return;
+      }
+      throw error;
     }
 
     if (epoch !== this.epoch || this.isStopping()) {

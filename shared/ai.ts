@@ -37,6 +37,8 @@ export type AiErrorCode =
   | "timeout"
   /** The user (or the app) aborted the request. */
   | "cancelled"
+  /** Local AI is turned off on the Privacy page. */
+  | "permission-disabled"
   /** Anything we could not classify. */
   | "unknown";
 

@@ -40,8 +40,8 @@ function formatLastUsed(lastUsed: number | null): string {
 
 /**
  * Privacy Dashboard: every capability Luna uses, with its status, last-use
- * time, and a control to allow or disable it. Read-only beyond the toggle
- * and the "why" reveal — enforcement lives with each capability.
+ * time, and a control to allow or disable it. Turning a capability off
+ * blocks it at the main-process boundary; "Last used" updates when it runs.
  */
 export function PrivacyPage() {
   const permissions = usePermissionsStore((state) => state.permissions);

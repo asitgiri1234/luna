@@ -13,6 +13,11 @@ import { createLogger } from "../../shared/logger";
 import { activityService } from "../activity/activity.service";
 import { getDb } from "../backend/db/client";
 import { MemoryRepository } from "../backend/db/memory.repository";
+import {
+  assertPermission,
+  isPermissionAllowed,
+  recordPermissionUse,
+} from "../permissions/permission.gate";
 
 /**
  * # Memory controller (main process)
@@ -42,7 +47,11 @@ export class MemoryController {
   }
 
   save(input: SaveMemoryInput): DbResult<SaveMemoryResult> {
-    const result = run("save", () => this.repository().saveMemory(input));
+    const result = run("save", () => {
+      assertPermission("memory");
+      recordPermissionUse("memory");
+      return this.repository().saveMemory(input);
+    });
     if (result.ok) {
       activityService.logActivity({
         type: "memory-created",
@@ -99,11 +108,16 @@ export class MemoryController {
   }
 
   relevant(query: string): DbResult<MemoryRecord[]> {
-    return run("relevant", () => this.repository().getRelevantMemories(query));
+    // Disabled memory must not break chat — the reply just isn't personalized.
+    if (!isPermissionAllowed("memory")) return { ok: true, data: [] };
+    const result = run("relevant", () => this.repository().getRelevantMemories(query));
+    if (result.ok && result.data.length > 0) recordPermissionUse("memory");
+    return result;
   }
 
   addRule(input: AddRuleInput): DbResult<null> {
     return run("addRule", () => {
+      assertPermission("memory");
       this.repository().addRule(input);
       return null;
     });
