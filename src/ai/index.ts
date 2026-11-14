@@ -80,7 +80,11 @@ export function createAiCore(overrides: AiCoreOverrides = {}): AiCore {
     typeof window !== "undefined" ? (window.luna?.platform ?? "unknown") : "unknown";
 
   const tools = createToolSystem({ provider, model: config.model, platform });
-  const automation = createAutomationSystem({ planning: tools.service, platform });
+  const automation = createAutomationSystem({
+    planning: tools.service,
+    platform,
+    memory: memoryRepository,
+  });
 
   const documentChat = new DocumentChatService(
     (input) => documentService.retrieve(input),
@@ -129,10 +133,10 @@ if (import.meta.env.DEV) setLogLevel("debug");
 export const aiCore: AiCore = createAiCore();
 
 /**
- * Programmatic entry point to the tool-planning framework. It plans and
- * routes tool use but NEVER executes — the executing milestone and any
- * agent UI consume `plan()`'s `ExecutionRequest`. Exposed on `window`
- * so those future surfaces (and integration tests) have a stable hook.
+ * Programmatic entry point. `plan` only routes; `run` executes behind
+ * the permission gate. Chat calls `resolveForReply` so the assistant
+ * sees each outcome before it streams. Exposed on `window` for
+ * diagnostics and integration checks.
  */
 export interface LunaAgentApi {
   plan: (message: string) => Promise<ExecutionRequest>;

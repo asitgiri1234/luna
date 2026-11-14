@@ -1,3 +1,4 @@
+import type { MemoryRepository } from "@/ai/memory/memory-repository";
 import type { ToolPlanningService } from "@/ai/tools";
 import { createLogger } from "@shared/logger";
 
@@ -10,6 +11,7 @@ import { ExecutionEngine } from "./executor/execution-engine";
 import { ExecutorRegistry } from "./executor/executor-registry";
 import type { ExecutorContext, ToolExecutor } from "./executor/types";
 import { DocumentExecutor, SearchFilesExecutor } from "./filesystem/search-files.executor";
+import { MemoryExecutor } from "./memory/memory.executor";
 import { NotesExecutor } from "./notes/notes.executor";
 import { PermissionManager } from "./permission/permission-manager";
 import { ReminderExecutor } from "./reminders/reminder.executor";
@@ -40,9 +42,10 @@ export interface AutomationSystem {
 export interface AutomationOptions {
   planning: ToolPlanningService;
   platform: string;
+  memory?: MemoryRepository;
 }
 
-function createExecutorRegistry(): ExecutorRegistry {
+function createExecutorRegistry(memory?: MemoryRepository): ExecutorRegistry {
   const registry = new ExecutorRegistry();
   const executors: ToolExecutor[] = [
     new LaunchApplicationExecutor(),
@@ -54,13 +57,14 @@ function createExecutorRegistry(): ExecutorRegistry {
     new BrowserExecutor(),
     new ReminderExecutor(),
   ];
+  if (memory) executors.push(new MemoryExecutor(memory));
   for (const executor of executors) registry.register(executor);
   return registry;
 }
 
 export function createAutomationSystem(options: AutomationOptions): AutomationSystem {
   const context: ExecutorContext = { platform: options.platform };
-  const registry = createExecutorRegistry();
+  const registry = createExecutorRegistry(options.memory);
   const permissions = new PermissionManager(createLogger("automation:permission"));
   const engine = new ExecutionEngine(
     registry,

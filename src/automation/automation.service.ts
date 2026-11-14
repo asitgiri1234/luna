@@ -3,10 +3,27 @@ import type { ExecutionRequest, ToolResult } from "@/ai/tools/types";
 import type { Logger } from "@shared/logger";
 
 import type { ExecutionEngine } from "./executor/execution-engine";
+import { didSaveMemory, formatToolOutcomes } from "./tool-outcome";
 
-/** Minimal surface the conversation manager needs to trigger automation. */
+/**
+ * What the conversation manager needs from a tool turn: the prompt
+ * block to inject, and whether a memory was already saved explicitly.
+ */
+export interface ToolTurnContext {
+  prompt: string;
+  skipMemoryMining: boolean;
+}
+
+/** Minimal surface the conversation manager needs to run tools before a reply. */
 export interface ConversationAutomationPort {
-  observeUserMessage(text: string): void;
+  /**
+   * Plans and executes tools for a user message before the assistant
+   * replies. Returns null for ordinary chat (no command hint, or the
+   * planner found nothing to run).
+   */
+  resolveForReply(text: string): Promise<ToolTurnContext | null>;
+  /** Abandons an in-flight tool turn (Stop, or the thread changed). */
+  cancelPending(): void;
 }
 
 /**
@@ -15,7 +32,7 @@ export interface ConversationAutomationPort {
  * avoids spurious permission prompts.
  */
 const COMMAND_HINT =
-  /\b(open|launch|start|run|search|find|remind|reminder|copy|paste|clipboard|calculate|compute|note|browse|google|go to|visit|website)\b/i;
+  /\b(open|launch|start|run|search|find|remind|reminder|copy|paste|clipboard|calculate|compute|note|browse|google|go to|visit|website|remember|recall|memorize|memory)\b/i;
 
 /**
  * # Automation service (renderer façade)
@@ -25,11 +42,15 @@ const COMMAND_HINT =
  *
  *   message → ToolPlanningService (plan + route) → ExecutionEngine (execute)
  *
- * It reuses the Milestone 6 planner/router unchanged — execution never
- * bypasses the Tool Router — and delegates all OS work to the engine's
- * executors. Nothing runs without the permission gate approving.
+ * Chat calls `resolveForReply` before streaming, then injects the
+ * formatted outcomes so the model can confirm, explain a failure, or
+ * say an action was denied. `run` stays available for direct callers.
+ * Nothing runs without the permission gate approving.
  */
 export class AutomationService implements ConversationAutomationPort {
+  /** Set when the user stops the turn while planning or executing. */
+  private replyAborted = false;
+
   constructor(
     private readonly planning: ToolPlanningService,
     private readonly engine: ExecutionEngine,
@@ -38,8 +59,9 @@ export class AutomationService implements ConversationAutomationPort {
 
   /** Plans tools for a message and executes any that are approved. */
   async run(message: string): Promise<{ request: ExecutionRequest; results: ToolResult[] }> {
+    this.replyAborted = false;
     const request = await this.planning.plan(message);
-    if (!request.requiresTools) {
+    if (this.replyAborted || !request.requiresTools) {
       this.logger.debug("no tools to execute", { message: message.slice(0, 80) });
       return { request, results: [] };
     }
@@ -47,19 +69,35 @@ export class AutomationService implements ConversationAutomationPort {
       steps: request.routedSteps.length,
       tools: request.routedSteps.map((s) => s.toolName),
     });
-    const { results } = await this.engine.run(request);
+    const { results } = await this.engine.run(request, () => this.replyAborted);
     return { request, results };
   }
 
-  /**
-   * Fire-and-forget trigger from the conversation flow. Applies the
-   * command pre-filter, then plans + executes (permission-gated). Runs
-   * after the assistant reply so it never competes with streaming.
-   */
-  observeUserMessage(text: string): void {
-    if (!COMMAND_HINT.test(text)) return;
-    void this.run(text).catch((error) => {
-      this.logger.warn("automation run failed", { error: String(error) });
-    });
+  async resolveForReply(text: string): Promise<ToolTurnContext | null> {
+    if (!COMMAND_HINT.test(text)) return null;
+    try {
+      const { results } = await this.run(text);
+      if (this.replyAborted || results.length === 0) return null;
+      const prompt = formatToolOutcomes(results);
+      if (!prompt) return null;
+      return { prompt, skipMemoryMining: didSaveMemory(results) };
+    } catch (error) {
+      this.logger.warn("tool turn failed", { error: String(error) });
+      return {
+        prompt: formatToolOutcomes([
+          {
+            status: "failed",
+            toolName: "automation",
+            error: "The action could not be planned or run.",
+          },
+        ]),
+        skipMemoryMining: false,
+      };
+    }
+  }
+
+  cancelPending(): void {
+    this.replyAborted = true;
+    this.engine.cancel();
   }
 }

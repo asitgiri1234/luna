@@ -97,6 +97,8 @@ export class ConversationManager {
   private epoch = 0;
   /** User text to mine for memories once the current exchange completes. */
   private pendingExtractionText: string | null = null;
+  /** Fresh sends run tools before the reply; regenerate does not repeat side effects. */
+  private runToolsThisTurn = false;
   /** When true, each turn retrieves document context before generating. */
   private documentMode = false;
   /** When set, each turn is grounded in this image (image chat). */
@@ -187,13 +189,14 @@ export class ConversationManager {
       this.emitConversationsChanged();
     });
 
-    this.startGeneration();
+    this.startGeneration(true);
   }
 
   stop(): void {
     if (this.state.status !== "waiting" && this.state.status !== "streaming") return;
     this.setState({ status: "stopping" });
     this.handle?.cancel();
+    this.deps.automation?.cancelPending();
   }
 
   /** Re-runs the last exchange (drops the trailing assistant reply, if any). */
@@ -207,13 +210,14 @@ export class ConversationManager {
     }
     if (messages[messages.length - 1]?.role !== "user") return;
     this.setState({ messages, error: null });
-    this.startGeneration();
+    this.startGeneration(false);
   }
 
   /** Clears the active thread. The next send starts a new conversation. */
   reset(): void {
     this.epoch += 1;
     this.handle?.cancel();
+    this.deps.automation?.cancelPending();
     this.handle = null;
     this.tokenBuffer = "";
     this.activeConversationId = null;
@@ -236,6 +240,7 @@ export class ConversationManager {
   async selectConversation(id: string): Promise<void> {
     this.epoch += 1;
     this.handle?.cancel();
+    this.deps.automation?.cancelPending();
     this.handle = null;
     this.tokenBuffer = "";
 
@@ -336,16 +341,13 @@ export class ConversationManager {
   /**
    * Mines the just-completed user message for memory candidates. Runs
    * after generation so it never competes with streaming for the model.
+   * Tool actions have already run, before the reply.
    */
   private runPendingExtraction(): void {
     const text = this.pendingExtractionText;
     this.pendingExtractionText = null;
     if (!text) return;
     this.deps.memory.observeUserMessage(text, this.activeConversationId);
-    // A user message may also imply a tool action; the automation service
-    // pre-filters and, if warranted, plans + executes behind the permission
-    // gate. Fire-and-forget so it never blocks chat.
-    this.deps.automation?.observeUserMessage(text);
   }
 
   // -- Auto title -----------------------------------------------------------
@@ -402,7 +404,8 @@ export class ConversationManager {
    * retrieves relevant memories and starts streaming. Retrieval happens
    * behind the typing indicator so the UI never stalls.
    */
-  private startGeneration(): void {
+  private startGeneration(runTools: boolean): void {
+    this.runToolsThisTurn = runTools;
     const epoch = this.epoch;
     const query = [...this.state.messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
@@ -439,9 +442,30 @@ export class ConversationManager {
   private async beginStream(epoch: number, query: string): Promise<void> {
     const { provider, config, promptBuilder, contextManager, logger } = this.deps;
 
+    // Run tools first, while the reply is still waiting, so the model
+    // can talk about what actually happened. Ordinary chat skips this.
+    let actions = "";
+    if (this.runToolsThisTurn && this.deps.automation) {
+      const turn = await this.deps.automation.resolveForReply(query);
+      if (epoch !== this.epoch) return;
+      if (this.isStopping()) {
+        this.abandonWaitingReply();
+        return;
+      }
+      if (turn) {
+        actions = turn.prompt;
+        if (turn.skipMemoryMining) this.pendingExtractionText = null;
+        logger.debug("injected tool outcomes");
+      }
+    }
+
     // Retrieve only memories relevant to this turn, and inject them.
     const memory = await this.deps.memory.getRelevantMemories(query);
     if (epoch !== this.epoch) return; // thread switched while retrieving
+    if (this.isStopping()) {
+      this.abandonWaitingReply();
+      return;
+    }
     if (memory.length > 0) logger.debug("injected memories", { count: memory.length });
 
     // Ground the turn: an image being discussed takes priority; otherwise
@@ -476,10 +500,15 @@ export class ConversationManager {
       logger.debug("injected document context", { chunks: context.length });
     }
 
+    if (epoch !== this.epoch || this.isStopping()) {
+      if (epoch === this.epoch) this.abandonWaitingReply();
+      return;
+    }
+
     const history: AiChatMessage[] = this.state.messages
       .filter((m) => m.content !== "" || m.role === "user")
       .map(({ role, content }) => ({ role, content }));
-    const prompt = promptBuilder.build({ history, memory, context });
+    const prompt = promptBuilder.build({ history, memory, context, actions });
 
     const model = resolveModel(config.model);
     const fitted = contextManager.fitToWindow(prompt, {
@@ -531,6 +560,17 @@ export class ConversationManager {
         },
       },
     );
+  }
+
+  private isStopping(): boolean {
+    return this.state.status === "stopping";
+  }
+
+  /** Stop landed before any tokens: drop the empty assistant bubble and stay idle. */
+  private abandonWaitingReply(): void {
+    this.pendingExtractionText = null;
+    this.handle = null;
+    this.finishAssistantMessage((last) => last);
   }
 
   /**

@@ -12,9 +12,10 @@ import type { ContextLimits, RetrievedContextChunk } from "./prompt-context";
  *
  * Assembly order (all inside the system message, then history):
  *   1. system prompt (from `AiConfig`)
- *   2. retrieved document context   ← RAG augmentation (this milestone)
+ *   2. retrieved document context   ← RAG augmentation
  *   3. memory block                 (things remembered about the user)
- *   4. conversation history         (already trimmed by the context
+ *   4. tool outcomes                (actions already run this turn)
+ *   5. conversation history         (already trimmed by the context
  *                                    manager or downstream)
  *
  * The document context is placed before the conversation history — and so
@@ -37,6 +38,11 @@ export interface PromptInput {
   memory?: string[];
   /** Retrieved document chunks to inject as context (RAG). */
   context?: RetrievedContextChunk[];
+  /**
+   * Outcomes of tools that already ran this turn. Rendered as-is; the
+   * caller owns the wording (see `formatToolOutcomes`).
+   */
+  actions?: string;
 }
 
 export class PromptBuilder {
@@ -57,7 +63,7 @@ export class PromptBuilder {
     this.formatter = new ContextFormatter(contextLimits);
   }
 
-  build({ history, memory = [], context = [] }: PromptInput): AiChatMessage[] {
+  build({ history, memory = [], context = [], actions = "" }: PromptInput): AiChatMessage[] {
     let system = this.systemPrompt;
 
     const persona = this.personaProvider?.().trim();
@@ -73,6 +79,11 @@ export class PromptBuilder {
     if (memory.length > 0) {
       const facts = memory.map((fact) => `- ${fact}`).join("\n");
       system += `\n\n## Things you remember about the user\n${facts}`;
+    }
+
+    const actionBlock = actions.trim();
+    if (actionBlock) {
+      system += `\n\n${actionBlock}`;
     }
 
     return [{ role: "system", content: system }, ...history];

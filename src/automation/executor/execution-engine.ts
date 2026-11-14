@@ -76,8 +76,20 @@ export class ExecutionEngine {
     return this.cards;
   }
 
-  /** Executes a routed request end to end. Safe to call fire-and-forget. */
-  async run(request: ExecutionRequest): Promise<EngineResult> {
+  /** Dismisses a permission dialog that is blocking the current run. */
+  cancel(): void {
+    this.permissions.cancelAll();
+  }
+
+  /**
+   * Executes a routed request end to end.
+   * `isCancelled` is checked between steps and after a permission
+   * decision so Stop can abandon the rest of the plan.
+   */
+  async run(
+    request: ExecutionRequest,
+    isCancelled: () => boolean = () => false,
+  ): Promise<EngineResult> {
     if (!request.requiresTools || !request.plan) {
       return { requestId: request.id, results: [], cards: [] };
     }
@@ -100,7 +112,9 @@ export class ExecutionEngine {
 
     for (const routed of request.routedSteps) {
       const cardId = cardIds.get(routed.step.id)!;
-      const result = await this.runStep(routed, results, cardId);
+      const result = isCancelled()
+        ? this.skipCancelled(routed.toolName, cardId)
+        : await this.runStep(routed, results, cardId, isCancelled);
       results.set(routed.step.id, result);
       produced.push(result);
     }
@@ -108,10 +122,24 @@ export class ExecutionEngine {
     return { requestId: request.id, results: produced, cards: this.cards };
   }
 
+  private skipCancelled(toolName: string, cardId: string): ToolResult {
+    this.updateCard(cardId, {
+      status: "cancelled",
+      detail: "Stopped before this action ran.",
+      finishedAt: Date.now(),
+    });
+    return {
+      status: "cancelled",
+      toolName,
+      error: "The user stopped the turn before this action ran.",
+    };
+  }
+
   private async runStep(
     routed: RoutedStep,
     results: Map<string, ToolResult>,
     cardId: string,
+    isCancelled: () => boolean,
   ): Promise<ToolResult> {
     const { step, toolName, validation, permissionRequest } = routed;
     const startedAt = Date.now();
@@ -145,11 +173,17 @@ export class ExecutionEngine {
     if (permissionRequest) {
       this.updateCard(cardId, { status: "awaiting-permission" });
       const decision = await this.permissions.request(permissionRequest);
-      if (decision.state !== "approved") {
-        const status = decision.state === "cancelled" ? "cancelled" : "denied";
-        finish(status, `Permission ${decision.state}.`);
+      if (isCancelled() || decision.state !== "approved") {
+        const stopped = isCancelled() || decision.state === "cancelled";
+        const status = stopped ? "cancelled" : "denied";
+        const error = isCancelled()
+          ? "The user stopped the turn before this action ran."
+          : decision.state === "denied"
+            ? "The user denied permission."
+            : "The user cancelled the action.";
+        finish(status, error);
         this.logger.info("step not permitted", { tool: toolName, state: decision.state });
-        return { status: "cancelled", toolName };
+        return { status: "cancelled", toolName, error };
       }
     }
 

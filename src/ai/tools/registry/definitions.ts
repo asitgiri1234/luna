@@ -114,7 +114,9 @@ export class MemoryTool extends PlaceholderTool {
   readonly category: ToolCategory = "memory";
   readonly parameters: ToolParameterSpec[] = [
     { name: "action", type: "string", description: '"recall" or "save".', required: true },
-    { name: "value", type: "string", description: "What to recall or save.", required: true },
+    { name: "value", type: "string", description: "What to recall or save. Omit on recall to list memories.", required: false },
+    { name: "key", type: "string", description: "Short label when saving.", required: false },
+    { name: "category", type: "string", description: "Memory category when saving.", required: false },
   ];
   readonly permissionsRequired: Permission[] = ["read-memory", "write-memory"];
 }

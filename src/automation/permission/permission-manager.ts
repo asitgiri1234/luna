@@ -85,6 +85,16 @@ export class PermissionManager {
     this.logger.info("permission resolved", { id, state: decision.state });
   }
 
+  /**
+   * Dismisses every open prompt as cancelled. Used when the user stops
+   * the turn or leaves the conversation while a dialog is up.
+   */
+  cancelAll(): void {
+    for (const id of [...this.pending.keys()]) {
+      this.resolve(id, { state: "cancelled", remember: false });
+    }
+  }
+
   /** Clears all remembered choices (for a future settings screen). */
   clearRemembered(): void {
     this.policies = {};
