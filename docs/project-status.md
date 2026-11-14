@@ -82,7 +82,7 @@ About reads `app.getVersion()` and no longer says "preview".
 
 The sidebar shows the assistant name from personalization, falling back to "Luna", and that assistant's avatar. The hardcoded "Asit" and "Free plan" are gone.
 
-## Point 4 — done
+## Point 4 — done (`016f896`)
 
 Long chats used to be truncated. `SlidingWindowContextManager` dropped the oldest turns once they exceeded the window.
 
@@ -136,7 +136,7 @@ Do only the next step below. Push it to GitHub when it works. Do not start the l
 - Agent loop: tools run before the reply, and the model sees the outcome. Commit 668d5ee. Regenerate does not re-run tools. Tool classes in src/ai/tools/registry/definitions.ts are still PlaceholderTool on purpose. Real work is the executor registry in src/automation/index.ts. Do not move execution into PlaceholderTool.execute.
 - Privacy toggles are enforced in electron/permissions/permission.gate.ts, and last-used is recorded. Commit 59f0071.
 - Settings and sidebar identity. Commit 437b5cb. Launch on startup uses app.setLoginItemSettings and persists in %APPDATA%/Luna/shell.json (default off). An unpackaged login item must pass the app directory, because Vite starts Electron as "electron ." and argv has no main script. Minimize to tray defaults on: closing hides the window, and the tray offers Show and Quit. About shows app.getVersion(). The sidebar shows the assistant name from personalization, falling back to "Luna", and that avatar. Do not bring back a plan label.
-- Long chats are summarized, not truncated. SummarizingContextManager in src/ai/context/summarizing-context-manager.ts implements ContextManager. When the conversation fits, it is left unchanged. When it does not, the overflow is one summary message. The system prompt and the latest turn are always kept. fitToWindow is async; the only caller is beginStream. The summary uses the existing Ollama provider. SlidingWindowContextManager stays as the fallback when the summary fails. If the Local AI privacy toggle is off, do not call the model for a summary. Do not add another model provider.
+- Long chats are summarized, not truncated. Commit 016f896. SummarizingContextManager in src/ai/context/summarizing-context-manager.ts implements ContextManager. When the conversation fits, it is left unchanged. When it does not, the overflow is one summary message. The system prompt and the latest turn are always kept. fitToWindow is async; the only caller is beginStream. The summary uses the existing Ollama provider. SlidingWindowContextManager stays as the fallback when the summary fails. If the Local AI privacy toggle is off, do not call the model for a summary. Do not add another model provider.
 
 ## Next step (this session)
 
