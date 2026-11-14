@@ -5,8 +5,10 @@ Handoff for the next agent. The GitHub repo is
 folder `Documents/Luna` tracks `origin/main`.
 
 Luna is a privacy-first desktop AI assistant. Electron + React 19 +
-TypeScript, Tailwind, a local Ollama model, and SQLite (Drizzle) under
-`%APPDATA%/luna/luna.db`. Everything is meant to run offline.
+TypeScript, Tailwind, a local Ollama model, and SQLite (Drizzle). The
+database is Electron's user-data directory, which on this machine is
+`%APPDATA%/Luna/luna.db` (the product name, capital L). `shell.json`
+sits next to it. Everything is meant to run offline.
 
 ## What is already built
 
@@ -68,7 +70,7 @@ refusal instead of quietly answering with no context. If the permission
 database itself cannot be read, the gate fails open and logs it, so a
 broken DB does not brick chat.
 
-## Point 3 — done (this change)
+## Point 3 — done (`437b5cb`)
 
 Settings → General and the sidebar identity used to be placeholders.
 
@@ -80,13 +82,15 @@ About reads `app.getVersion()` and no longer says "preview".
 
 The sidebar shows the assistant name from personalization, falling back to "Luna", and that assistant's avatar. The hardcoded "Asit" and "Free plan" are gone.
 
-## Still open
+## Next step
 
-4. **Long chats are truncated, not summarized.** `SlidingWindowContextManager` drops old messages. The planned summarizer was never added.
+4. **Long chats are truncated, not summarized.** This is the only task for the next agent. The prompt is at the bottom of this file.
+
+## Still open after that
 
 5. **Memory search is keyword overlap**, not embeddings. No confidence decay. No export. Notes and reminders can be created from chat and have no management screen.
 
-6. **Docs and tests lag the code.** `README.md` still describes only the shell and chat. `docs/documents-architecture.md` and `docs/tool-architecture.md` still say embeddings and execution do not exist. There is no test suite; checks have been `tsc -b` plus small one-off scripts that are not kept in the repo.
+6. **Docs and tests lag the code.** `README.md` still describes only the shell and chat. `docs/documents-architecture.md` and `docs/tool-architecture.md` still say embeddings and execution do not exist. There is no test suite; checks have been `tsc -b` plus small one-off scripts that are not kept in the repo. When tests are added, cover the privacy gate, the tool-outcome prompt, and the context summarizer. Do not invent a large framework.
 
 Also not started, from `docs/ai-architecture.md`: voice, and any model provider besides Ollama.
 
@@ -101,3 +105,40 @@ Tool *definitions* in `src/ai/tools/registry/definitions.ts` are still `Placehol
 - Privacy UI: `src/pages/privacy/PrivacyPage.tsx`
 - Shell (login item, tray, close-to-tray): `electron/shell/shell.ts`
 - Settings page: `src/pages/settings/SettingsPage.tsx`
+- Context window: `src/ai/context/context-manager.ts`, `src/ai/context/sliding-window.ts`
+- Where the context manager is chosen: `src/ai/index.ts` (`createAiCore`, `new SlidingWindowContextManager()`)
+- Where the window is applied: `src/ai/conversation/conversation-manager.ts` (`beginStream`, the `fitToWindow` call)
+
+## Prompt for the next agent
+
+Copy the block below into a new chat. Do not start steps 5 or 6 in that session.
+
+```
+You are continuing Luna, a privacy-first offline desktop AI assistant. The repo is https://github.com/asitgiri1234/luna (local folder Documents/Luna, branch main). Read docs/project-status.md first and keep it updated when you finish.
+
+Do only the next step below. Push it to GitHub when it works. Do not start the later steps.
+
+## Already done (do not redo)
+
+- Agent loop: tools run before the reply, and the model sees the outcome. Commit 668d5ee. Regenerate does not re-run tools. Tool classes in src/ai/tools/registry/definitions.ts are still PlaceholderTool on purpose. Real work is the executor registry in src/automation/index.ts. Do not move execution into PlaceholderTool.execute.
+- Privacy toggles are enforced in electron/permissions/permission.gate.ts, and last-used is recorded. Commit 59f0071.
+- Settings and sidebar identity. Commit 437b5cb. Launch on startup uses app.setLoginItemSettings and persists in %APPDATA%/Luna/shell.json (default off). An unpackaged login item must pass the app directory, because Vite starts Electron as "electron ." and argv has no main script. Minimize to tray defaults on: closing hides the window, and the tray offers Show and Quit. About shows app.getVersion(). The sidebar shows the assistant name from personalization, falling back to "Luna", and that avatar. Do not bring back a plan label.
+
+## Next step (this session)
+
+Long chats are truncated, not summarized. SlidingWindowContextManager in src/ai/context/sliding-window.ts drops old messages once they exceed the window. The ContextManager interface in src/ai/context/context-manager.ts already says the summarizer belongs behind that interface.
+
+1. Add a summarizer that implements ContextManager. When the conversation fits, leave it unchanged. When it does not, compress the overflow into one summary message instead of dropping it. Always keep the system prompt and the latest turn.
+2. fitToWindow is synchronous today, and its only caller is inside the async beginStream in src/ai/conversation/conversation-manager.ts. A real summary has to call the existing Ollama provider, so make that path async and update the one call. Do not add another model provider.
+3. Swap the new manager in at the composition root, src/ai/index.ts, where createAiCore currently does `new SlidingWindowContextManager()`. Leave SlidingWindowContextManager in place as the fallback when the summary call fails, so a failed summary does not break the reply.
+4. Respect the Local AI privacy toggle. A summary is a model call. If that toggle is off, do not call the model for a summary; fall back to the sliding window.
+5. Typecheck with npx tsc -b. Update docs/project-status.md so this step is marked done and the list below is what remains. Commit and push to origin main.
+
+## Remaining after that (do not build these now)
+
+5. Memory and the small productivity tools are unfinished. Memory search is token overlap in electron/backend/db/memory-search.ts, not embeddings. confidence, lastUsed, and updatedAt are stored but never used for decay. There is no export. Notes and reminders can be created from chat and have no management screen.
+
+6. Docs and tests lag the code. README.md still describes only the shell and the chat engine. docs/documents-architecture.md and docs/tool-architecture.md still say embeddings and execution do not exist. There is no test suite. Bring the README and those two docs in line with the code. Add a small real test suite for the gate, the tool-outcome prompt, and the context summarizer. Do not invent a large framework.
+
+Not started, and not part of this sequence unless asked: voice, and any model provider besides Ollama.
+```
