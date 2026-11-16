@@ -24,6 +24,7 @@ import {
   type CandidateDisposition,
   MEMORY_CHANNELS,
   type MemoryCandidate,
+  type MemoryExportResult,
   type MemoryRecord,
   type SaveMemoryInput,
   type SaveMemoryResult,
@@ -144,6 +145,8 @@ const lunaApi = {
       ipcRenderer.invoke(MEMORY_CHANNELS.addRule, input),
     classify: (candidate: MemoryCandidate): Promise<DbResult<CandidateDisposition>> =>
       ipcRenderer.invoke(MEMORY_CHANNELS.classify, candidate),
+    exportMemories: (): Promise<DbResult<MemoryExportResult>> =>
+      ipcRenderer.invoke(MEMORY_CHANNELS.export),
   },
   automation: {
     listApps: (): Promise<AutomationResult<AppInfo[]>> =>
@@ -182,6 +185,8 @@ const lunaApi = {
       ipcRenderer.invoke(AUTOMATION_CHANNELS.noteOpen, id),
     listNotes: (): Promise<AutomationResult<NoteRecord[]>> =>
       ipcRenderer.invoke(AUTOMATION_CHANNELS.noteList),
+    deleteNote: (id: string): Promise<AutomationResult<null>> =>
+      ipcRenderer.invoke(AUTOMATION_CHANNELS.noteDelete, id),
   },
   files: {
     pick: (): Promise<FileOpResult<string[]>> => ipcRenderer.invoke(FILE_CHANNELS.pick),

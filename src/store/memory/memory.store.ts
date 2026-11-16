@@ -40,6 +40,8 @@ interface MemoryUiState {
   refresh: () => Promise<void>;
   /** Search saved memories by key/value (updates the query + refreshes). */
   searchMemories: (query: string) => void;
+  /** Writes a JSON file of every memory to a path the user picks. */
+  exportMemories: () => Promise<{ saved: boolean; path: string | null }>;
   setCategoryFilter: (filter: CategoryFilter) => void;
   setShowArchived: (show: boolean) => void;
   editMemory: (
@@ -52,6 +54,9 @@ interface MemoryUiState {
 }
 
 const memory = aiCore.memory;
+
+/** Embedding search hits Ollama, so typing waits briefly instead of calling per keystroke. */
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useMemoryStore = create<MemoryUiState>()((set, get) => {
   const take = (localId: string): PendingCandidate | undefined => {
@@ -99,9 +104,14 @@ export const useMemoryStore = create<MemoryUiState>()((set, get) => {
       }
     },
 
+    exportMemories: () => memory.exportMemories(),
+
     searchMemories: (query) => {
       set({ query });
-      void get().refresh();
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        void get().refresh();
+      }, 300);
     },
 
     setCategoryFilter: (categoryFilter) => set({ categoryFilter }),

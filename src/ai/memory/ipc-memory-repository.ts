@@ -4,6 +4,7 @@ import type {
   CandidateDisposition,
   DbResult,
   MemoryCandidate,
+  MemoryExportResult,
   MemoryRecord,
   SaveMemoryInput,
   SaveMemoryResult,
@@ -75,5 +76,9 @@ export class IpcMemoryRepository implements MemoryRepository {
 
   async classifyCandidate(candidate: MemoryCandidate): Promise<CandidateDisposition> {
     return unwrap(await this.api().classify(candidate));
+  }
+
+  async exportMemories(): Promise<MemoryExportResult> {
+    return unwrap(await this.api().exportMemories());
   }
 }

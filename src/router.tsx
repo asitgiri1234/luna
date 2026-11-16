@@ -6,6 +6,7 @@ import { ChatPage } from "@/pages/chat/ChatPage";
 import { FilesPage } from "@/pages/files/FilesPage";
 import { HistoryPage } from "@/pages/history/HistoryPage";
 import { MemoryPage } from "@/pages/memory/MemoryPage";
+import { NotesPage } from "@/pages/notes/NotesPage";
 import { PrivacyPage } from "@/pages/privacy/PrivacyPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 
@@ -22,6 +23,7 @@ export const router = createHashRouter([
       { path: "/chats", element: <HistoryPage /> },
       { path: "/files", element: <FilesPage /> },
       { path: "/memory", element: <MemoryPage /> },
+      { path: "/notes", element: <NotesPage /> },
       { path: "/activity", element: <ActivityPage /> },
       { path: "/privacy", element: <PrivacyPage /> },
       { path: "/settings", element: <SettingsPage /> },

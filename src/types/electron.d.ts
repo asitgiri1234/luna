@@ -11,6 +11,7 @@ import type {
   AddRuleInput,
   CandidateDisposition,
   MemoryCandidate,
+  MemoryExportResult,
   MemoryRecord,
   SaveMemoryInput,
   SaveMemoryResult,
@@ -100,6 +101,7 @@ export interface LunaMemoryApi {
   relevant: (query: string) => Promise<DbResult<MemoryRecord[]>>;
   addRule: (input: AddRuleInput) => Promise<DbResult<null>>;
   classify: (candidate: MemoryCandidate) => Promise<DbResult<CandidateDisposition>>;
+  exportMemories: () => Promise<DbResult<MemoryExportResult>>;
 }
 
 export interface LunaAutomationApi {
@@ -121,6 +123,7 @@ export interface LunaAutomationApi {
   updateNote: (input: UpdateNoteInput) => Promise<AutomationResult<NoteRecord>>;
   openNote: (id: string) => Promise<AutomationResult<null>>;
   listNotes: () => Promise<AutomationResult<NoteRecord[]>>;
+  deleteNote: (id: string) => Promise<AutomationResult<null>>;
 }
 
 export interface LunaFilesApi {

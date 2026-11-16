@@ -134,4 +134,5 @@ export const AUTOMATION_CHANNELS = {
   noteUpdate: "automation:note-update",
   noteOpen: "automation:note-open",
   noteList: "automation:note-list",
+  noteDelete: "automation:note-delete",
 } as const;

@@ -31,4 +31,5 @@ export function registerMemoryIpc(controller: MemoryController): void {
   ipcMain.handle(MEMORY_CHANNELS.classify, (_e, candidate: MemoryCandidate) =>
     controller.classify(candidate),
   );
+  ipcMain.handle(MEMORY_CHANNELS.export, (event) => controller.exportMemories(event.sender));
 }

@@ -2,6 +2,7 @@ import type {
   AddRuleInput,
   CandidateDisposition,
   MemoryCandidate,
+  MemoryExportResult,
   MemoryRecord,
   SaveMemoryInput,
   SaveMemoryResult,
@@ -33,4 +34,6 @@ export interface MemoryRepository {
   getRelevantMemories(query: string): Promise<MemoryRecord[]>;
   addRule(input: AddRuleInput): Promise<void>;
   classifyCandidate(candidate: MemoryCandidate): Promise<CandidateDisposition>;
+  /** Saves a JSON file of every memory to a path the user picks. */
+  exportMemories(): Promise<MemoryExportResult>;
 }

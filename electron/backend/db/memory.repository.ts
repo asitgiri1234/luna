@@ -14,8 +14,14 @@ import {
 import { PersistenceError } from "../../../shared/conversations";
 import { createLogger } from "../../../shared/logger";
 import type { Db } from "./client";
-import { type MemorySearchStrategy, TokenOverlapSearch } from "./memory-search";
-import { memories, memoryRules } from "./schema";
+import { decayWeight } from "./memory-decay";
+import { LocalAiTextEmbedder } from "./memory-embedder";
+import {
+  EmbeddingMemorySearch,
+  type SemanticDocument,
+  type SemanticRankResult,
+} from "./memory-search";
+import { memories, memoryEmbeddings, memoryRules } from "./schema";
 
 /**
  * # Memory repository (main process)
@@ -29,6 +35,8 @@ import { memories, memoryRules } from "./schema";
  *   with high token similarity instead of inserting a duplicate.
  * - rows with an unrecognized category degrade to `"custom"` rather
  *   than being dropped, so a corrupt value never hides a memory.
+ * - search and prompt retrieval prefer local embeddings and fall back
+ *   to token overlap. Decay re-ranks; it never deletes.
  */
 
 const log = createLogger("main:db:memory");
@@ -37,8 +45,12 @@ const log = createLogger("main:db:memory");
 const DUPLICATE_THRESHOLD = 0.6;
 /** Similarity at/above which a candidate matches a user rule. */
 const RULE_THRESHOLD = 0.45;
-/** Minimum relevance to inject a memory into a prompt. */
+/** Minimum token-overlap relevance to inject a memory into a prompt. */
 const RELEVANCE_THRESHOLD = 0.12;
+/** Cosine similarity at/above which an embedding match is injected. */
+const SEMANTIC_RELEVANCE_THRESHOLD = 0.45;
+/** Cosine similarity at/above which the Memory page keeps a non-substring hit. */
+const SEMANTIC_PAGE_THRESHOLD = 0.38;
 const RELEVANCE_LIMIT = 6;
 
 interface MemoryRow {
@@ -61,11 +73,28 @@ function toRecord(row: MemoryRow): MemoryRecord {
   };
 }
 
+interface StoredEmbedding {
+  model: string;
+  vector: number[] | null;
+  sourceUpdatedAt: number;
+}
+
+function parseVector(raw: string): number[] | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.some((value) => typeof value !== "number")) return null;
+    return parsed as number[];
+  } catch {
+    return null;
+  }
+}
+
 export class MemoryRepository {
-  constructor(
-    private readonly db: Db,
-    private readonly search: MemorySearchStrategy = new TokenOverlapSearch(),
-  ) {}
+  private readonly search: EmbeddingMemorySearch;
+
+  constructor(private readonly db: Db, search?: EmbeddingMemorySearch) {
+    this.search = search ?? new EmbeddingMemorySearch(new LocalAiTextEmbedder());
+  }
 
   private tokensOf(memory: { key: string; value: string }): Set<string> {
     return this.search.tokenize(`${memory.key} ${memory.value}`);
@@ -155,51 +184,156 @@ export class MemoryRepository {
     return rows.map(toRecord);
   }
 
-  /** Title/value substring + token search for the Memory page. */
-  searchMemories(query: string): MemoryRecord[] {
+  /** Title/value substring plus semantic (or token) search for the Memory page. */
+  async searchMemories(query: string): Promise<MemoryRecord[]> {
+    const all = this.listMemories();
     const needle = query.trim().toLowerCase();
-    if (!needle) return this.listMemories();
-    const queryTokens = this.search.tokenize(needle);
-    return this.listMemories()
+    if (!needle) return all;
+
+    const ranked = await this.rankMemories(needle, all);
+    const now = Date.now();
+    return all
       .map((memory) => {
         const substring =
           memory.key.toLowerCase().includes(needle) ||
           memory.value.toLowerCase().includes(needle);
-        const score = substring
-          ? 1
-          : this.search.score(queryTokens, this.tokensOf(memory));
-        return { memory, score };
+        const similarity = substring ? 1 : (ranked.scores.get(memory.id) ?? 0);
+        return { memory, similarity, rank: similarity * decayWeight(memory, now) };
       })
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score)
+      .filter((entry) => {
+        if (
+          entry.memory.key.toLowerCase().includes(needle) ||
+          entry.memory.value.toLowerCase().includes(needle)
+        ) {
+          return true;
+        }
+        return ranked.mode === "embeddings"
+          ? entry.similarity >= SEMANTIC_PAGE_THRESHOLD
+          : entry.similarity > 0;
+      })
+      .sort((a, b) => b.rank - a.rank)
       .map((entry) => entry.memory);
   }
 
   /**
    * The memories most relevant to `query`, for prompt injection. Only
    * active (non-archived) memories; bumps `lastUsed` on those returned.
+   * Similarity decides what qualifies. Decay only changes the order, so
+   * an old memory is not dropped for being old.
    */
-  getRelevantMemories(query: string, limit = RELEVANCE_LIMIT): MemoryRecord[] {
-    const queryTokens = this.search.tokenize(query);
-    if (queryTokens.size === 0) return [];
-
+  async getRelevantMemories(query: string, limit = RELEVANCE_LIMIT): Promise<MemoryRecord[]> {
+    if (!query.trim()) return [];
     const active = this.listMemories().filter((memory) => !memory.isArchived);
-    const ranked = active
-      .map((memory) => ({ memory, score: this.search.score(queryTokens, this.tokensOf(memory)) }))
-      .filter((entry) => entry.score >= RELEVANCE_THRESHOLD)
-      .sort((a, b) => b.score - a.score)
+    const ranked = await this.rankMemories(query, active);
+    const threshold =
+      ranked.mode === "embeddings" ? SEMANTIC_RELEVANCE_THRESHOLD : RELEVANCE_THRESHOLD;
+    const now = Date.now();
+    const picked = active
+      .map((memory) => {
+        const similarity = ranked.scores.get(memory.id) ?? 0;
+        return { memory, similarity, rank: similarity * decayWeight(memory, now) };
+      })
+      .filter((entry) => entry.similarity >= threshold)
+      .sort((a, b) => b.rank - a.rank)
       .slice(0, limit);
 
-    if (ranked.length > 0) {
-      const now = Date.now();
-      const ids = ranked.map((entry) => entry.memory.id);
+    if (picked.length > 0) {
+      const ids = picked.map((entry) => entry.memory.id);
       this.db.transaction((tx) => {
         for (const id of ids) {
           tx.update(memories).set({ lastUsed: now }).where(eq(memories.id, id)).run();
         }
       });
     }
-    return ranked.map((entry) => entry.memory);
+    return picked.map((entry) => entry.memory);
+  }
+
+  /** Embeds the given memories when Local AI is on. Failures are logged, not thrown. */
+  async refreshEmbeddings(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    try {
+      const wanted = new Set(ids);
+      const selected = this.listMemories().filter((memory) => wanted.has(memory.id));
+      const documents = this.toSemantic(selected).map((document) => ({
+        ...document,
+        embedding: null,
+      }));
+      const vectors = await this.search.embedDocuments(documents);
+      this.persistVectors(vectors, new Map(selected.map((memory) => [memory.id, memory])));
+    } catch (error) {
+      log.warn("memory embedding refresh failed", { error: String(error) });
+    }
+  }
+
+  private async rankMemories(query: string, rows: MemoryRecord[]): Promise<SemanticRankResult> {
+    const documents = this.toSemantic(rows);
+    const ranked = await this.search.rank(query, documents);
+    this.persistVectors(ranked.vectors, new Map(rows.map((memory) => [memory.id, memory])));
+    return ranked;
+  }
+
+  private toSemantic(rows: MemoryRecord[]): SemanticDocument[] {
+    const stored = this.storedEmbeddings();
+    const model = this.search.model;
+    return rows.map((memory) => {
+      const row = stored.get(memory.id);
+      const fresh =
+        row && row.model === model && row.sourceUpdatedAt === memory.updatedAt && row.vector
+          ? row.vector
+          : null;
+      return { id: memory.id, text: `${memory.key}\n${memory.value}`, embedding: fresh };
+    });
+  }
+
+  private storedEmbeddings(): Map<string, StoredEmbedding> {
+    const rows = this.db.select().from(memoryEmbeddings).all() as {
+      memoryId: string;
+      model: string;
+      embedding: string;
+      sourceUpdatedAt: number;
+    }[];
+    const map = new Map<string, StoredEmbedding>();
+    for (const row of rows) {
+      map.set(row.memoryId, {
+        model: row.model,
+        vector: parseVector(row.embedding),
+        sourceUpdatedAt: row.sourceUpdatedAt,
+      });
+    }
+    return map;
+  }
+
+  private persistVectors(
+    vectors: { id: string; embedding: number[] }[],
+    byId: Map<string, MemoryRecord>,
+  ): void {
+    if (vectors.length === 0) return;
+    const model = this.search.model;
+    this.db.transaction((tx) => {
+      for (const vector of vectors) {
+        const memory = byId.get(vector.id);
+        if (!memory || vector.embedding.length === 0) continue;
+        const values = {
+          memoryId: vector.id,
+          model,
+          dimensions: vector.embedding.length,
+          embedding: JSON.stringify(vector.embedding),
+          sourceUpdatedAt: memory.updatedAt,
+        };
+        tx.insert(memoryEmbeddings)
+          .values(values)
+          .onConflictDoUpdate({
+            target: memoryEmbeddings.memoryId,
+            set: {
+              model: values.model,
+              dimensions: values.dimensions,
+              embedding: values.embedding,
+              sourceUpdatedAt: values.sourceUpdatedAt,
+            },
+          })
+          .run();
+      }
+    });
   }
 
   // -- Rules ----------------------------------------------------------------

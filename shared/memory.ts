@@ -93,6 +93,13 @@ export interface SaveMemoryResult {
   duplicate: boolean;
 }
 
+/** A local export of the user's memories. Written to a file the user picks. */
+export interface MemoryExportResult {
+  saved: boolean;
+  /** Absolute path when `saved` is true. */
+  path: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // "Always / never remember similar" rules
 // ---------------------------------------------------------------------------
@@ -123,4 +130,5 @@ export const MEMORY_CHANNELS = {
   relevant: "memory:relevant",
   addRule: "memory:add-rule",
   classify: "memory:classify",
+  export: "memory:export",
 } as const;

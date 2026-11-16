@@ -76,6 +76,21 @@ export const memoryRules = sqliteTable("memory_rules", {
   createdAt: integer("created_at").notNull(),
 });
 
+/**
+ * Vector for one memory, produced by the local Ollama embedding model.
+ * `source_updated_at` is the memory's `updated_at` at embed time, so a
+ * later edit is embedded again. Deleting the memory cascades here.
+ */
+export const memoryEmbeddings = sqliteTable("memory_embeddings", {
+  memoryId: text("memory_id")
+    .primaryKey()
+    .references(() => memories.id, { onDelete: "cascade" }),
+  model: text("model").notNull(),
+  dimensions: integer("dimensions").notNull(),
+  embedding: text("embedding").notNull(),
+  sourceUpdatedAt: integer("source_updated_at").notNull(),
+});
+
 /** Locally stored reminders scheduled by the automation engine. */
 export const reminders = sqliteTable("reminders", {
   id: text("id").primaryKey(),

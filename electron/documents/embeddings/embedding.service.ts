@@ -74,6 +74,21 @@ export class EmbeddingService {
   }
 
   /**
+   * Embeds several texts with the configured model, in batches. Used for
+   * memory search so it shares the same local Ollama model as documents.
+   */
+  async embedTexts(texts: string[], signal?: AbortSignal): Promise<number[][]> {
+    if (texts.length === 0) return [];
+    const batchSize = Math.max(1, this.config.batchSize);
+    const vectors: number[][] = [];
+    for (let index = 0; index < texts.length; index += batchSize) {
+      const batch = texts.slice(index, index + batchSize);
+      vectors.push(...(await this.embedBatch(this.config.model, batch, signal)));
+    }
+    return vectors;
+  }
+
+  /**
    * Embeds every chunk that doesn't yet have an embedding for the target
    * model (optionally scoped to one document), in batches, reporting
    * progress as it goes.

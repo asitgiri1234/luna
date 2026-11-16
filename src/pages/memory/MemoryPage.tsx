@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import { Archive, Search } from "lucide-react";
+import { Archive, Download, Search } from "lucide-react";
 
 import { MemoryCard } from "@/components/memory/MemoryCard";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageContainer } from "@/layouts/PageContainer";
 import { CATEGORY_META } from "@/lib/memory-categories";
@@ -22,6 +23,7 @@ export function MemoryPage() {
   const showArchived = useMemoryStore((state) => state.showArchived);
   const status = useMemoryStore((state) => state.status);
   const searchMemories = useMemoryStore((state) => state.searchMemories);
+  const exportMemories = useMemoryStore((state) => state.exportMemories);
   const setCategoryFilter = useMemoryStore((state) => state.setCategoryFilter);
   const setShowArchived = useMemoryStore((state) => state.setShowArchived);
 
@@ -50,13 +52,44 @@ export function MemoryPage() {
   }, [visible]);
 
   const archivedCount = memories.filter((m) => m.isArchived).length;
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+
+  async function onExport(): Promise<void> {
+    setExporting(true);
+    setExportNote(null);
+    try {
+      const result = await exportMemories();
+      if (result.saved && result.path) {
+        const name = result.path.split(/[/\\]/).pop() ?? result.path;
+        setExportNote(`Saved ${name} on this computer.`);
+      }
+    } catch {
+      setExportNote("Could not save the export.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <PageContainer
       title="Memory"
       description="Everything Luna remembers about you. You're always in control — edit, archive, or delete anything."
+      actions={
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={exporting || status !== "ready"}
+          onClick={() => void onExport()}
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export
+        </Button>
+      }
     >
       <div className="mx-auto max-w-3xl space-y-5">
+        {exportNote && <p className="text-sm text-muted-foreground">{exportNote}</p>}
         <div className="relative">
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

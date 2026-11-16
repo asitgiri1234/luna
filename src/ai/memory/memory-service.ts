@@ -1,5 +1,6 @@
 import type {
   MemoryCandidate,
+  MemoryExportResult,
   MemoryRecord,
   UpdateMemoryInput,
 } from "@shared/memory";
@@ -194,6 +195,11 @@ export class MemoryService implements ConversationMemoryPort {
 
   searchMemories(query: string): Promise<MemoryRecord[]> {
     return this.repository.searchMemories(query);
+  }
+
+  /** Local JSON export. The user picks the file; nothing is uploaded. */
+  exportMemories(): Promise<MemoryExportResult> {
+    return this.repository.exportMemories();
   }
 
   async updateMemory(input: UpdateMemoryInput): Promise<void> {

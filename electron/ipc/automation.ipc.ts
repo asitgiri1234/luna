@@ -9,7 +9,7 @@ import {
 } from "../../shared/automation";
 import { launchApplication, listApplications } from "../automation/applications";
 import { openFile, openFolder, revealFile, searchFiles } from "../automation/files";
-import { createNote, listNotes, openNote, updateNote } from "../automation/notes";
+import { createNote, deleteNote, listNotes, openNote, updateNote } from "../automation/notes";
 import {
   createReminder,
   deleteReminder,
@@ -85,4 +85,7 @@ export function registerAutomationIpc(): void {
     runAutomation("note-open", () => openNote(id)),
   );
   handle(AUTOMATION_CHANNELS.noteList, () => runAutomation("note-list", listNotes));
+  handle(AUTOMATION_CHANNELS.noteDelete, (_e, id: string) =>
+    runAutomation("note-delete", () => deleteNote(id)),
+  );
 }

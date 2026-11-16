@@ -86,3 +86,16 @@ export async function openNote(id: string): Promise<void> {
 export function listNotes(): NoteRecord[] {
   return getDb().select().from(notes).orderBy(desc(notes.updatedAt)).all() as NoteRecord[];
 }
+
+/** Removes the note row and, when it is still there, the Markdown file. */
+export async function deleteNote(id: string): Promise<void> {
+  const row = getDb().select().from(notes).where(eq(notes.id, id)).get() as
+    | NoteRecord
+    | undefined;
+  if (!row) throw new AutomationError("not-found", `Note "${id}" not found.`);
+  getDb().delete(notes).where(eq(notes.id, id)).run();
+  await fs.unlink(row.path).catch((error) => {
+    log.warn("note file was not removed", { id, error: String(error) });
+  });
+  log.info("note deleted", { id });
+}
